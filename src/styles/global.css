@@ -1,0 +1,355 @@
+:root {
+  --base: #ffffff;
+  --raise: #f5f6f8;
+  --ink: #111418;
+  --soft: #5b6676;
+  --rule: #d5d9e0;
+  --olive: #7286a3;
+  --water: #0f2340;
+  --route: #111418;
+  --good: #0f2340;
+  --shade: #edeff3;
+  --serif: 'Jost', 'Futura', 'Century Gothic', Helvetica, Arial, sans-serif;
+  --cond: 'Jost', 'Futura', 'Century Gothic', Helvetica, Arial, sans-serif;
+  --script: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --base: #0b1524;
+    --raise: #132135;
+    --ink: #e8ecf2;
+    --soft: #93a2b7;
+    --rule: #26374f;
+    --olive: #8fa6c4;
+    --water: #bfd0e8;
+    --route: #e8ecf2;
+    --good: #bfd0e8;
+    --shade: #17263b;
+  }
+}
+:root[data-theme='dark'] {
+  --base: #0b1524;
+  --raise: #132135;
+  --ink: #e8ecf2;
+  --soft: #93a2b7;
+  --rule: #26374f;
+  --olive: #8fa6c4;
+  --water: #bfd0e8;
+  --route: #e8ecf2;
+  --good: #bfd0e8;
+  --shade: #17263b;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: inherit;
+}
+
+html {
+  scroll-padding-top: env(safe-area-inset-top, 0px);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--base);
+  color: var(--ink);
+  font-family: var(--cond);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-family: var(--serif);
+  font-weight: 600;
+  line-height: 1.22;
+  letter-spacing: 0.01em;
+}
+
+p {
+  margin: 0 0 0.7em;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: var(--water);
+}
+
+:focus-visible {
+  outline: 2px solid var(--water);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+.hide {
+  display: none !important;
+}
+
+/* ── Gate (landing / setup) ─────────────────────────────────── */
+
+.gate {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 56px 20px 28px;
+}
+
+.gatemark {
+  width: 92px;
+  height: 92px;
+  fill: none;
+  stroke: var(--water);
+  stroke-linecap: butt;
+  overflow: visible;
+  margin-bottom: 24px;
+}
+
+.gate h1 {
+  font-size: clamp(26px, 3.6vw, 36px);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  line-height: 1.2;
+  color: var(--water);
+}
+
+.gate .sub {
+  font-family: var(--script);
+  font-style: italic;
+  font-size: 22px;
+  line-height: 1.4;
+  color: var(--soft);
+  margin: 14px 0 0;
+}
+
+.gate .rule {
+  width: 56px;
+  height: 1px;
+  background: var(--rule);
+  margin: 26px 0 4px;
+}
+
+.gatefoot {
+  font-family: var(--cond);
+  font-size: 14px;
+  color: var(--soft);
+  margin-top: 26px;
+}
+
+.gatefoot a {
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.termgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(288px, 1fr));
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  margin-top: 34px;
+  width: 100%;
+  max-width: 1080px;
+}
+
+.term {
+  background: var(--base);
+  padding: 26px 24px 24px;
+  text-align: left;
+}
+
+.term h2 {
+  font-size: 17px;
+  font-family: var(--serif);
+  letter-spacing: 0.12em;
+  font-weight: 600;
+}
+
+.term p {
+  font-family: var(--script);
+  font-style: italic;
+  font-size: 18px;
+  color: var(--soft);
+  margin: 8px 0 18px;
+  max-width: 42ch;
+}
+
+.term .row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+
+.term input {
+  flex: 1 1 190px;
+}
+
+.term .row .btn {
+  flex: 0 0 auto;
+}
+
+.termnote {
+  font-family: var(--cond);
+  font-size: 13px;
+  color: var(--soft);
+  margin-top: 12px;
+}
+
+/* Standalone card used on the account-setup page */
+.setupcard {
+  width: 100%;
+  max-width: 440px;
+  border: 1px solid var(--rule);
+  background: var(--raise);
+  text-align: left;
+}
+
+/* ── Forms ───────────────────────────────────────────────────── */
+
+label {
+  display: block;
+  font-family: var(--cond);
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 7px;
+  line-height: 1.35;
+  letter-spacing: 0.07em;
+  color: var(--ink);
+}
+
+label small {
+  display: block;
+  font-weight: 400;
+  color: var(--soft);
+  white-space: normal;
+  margin-top: 3px;
+  letter-spacing: 0.01em;
+  font-size: 12px;
+  text-transform: none;
+}
+
+@media (min-width: 660px) {
+  label {
+    white-space: nowrap;
+  }
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  padding: 0 12px;
+  border: 1px solid var(--rule);
+  background: var(--base);
+  border-radius: 2px;
+  font-family: var(--cond);
+  font-size: 15px;
+  height: 44px;
+  line-height: normal;
+  margin: 0;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.fieldgroup {
+  margin-top: 14px;
+}
+.fieldgroup:first-child {
+  margin-top: 0;
+}
+
+.btn {
+  font-family: var(--cond);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  padding: 11px 22px;
+  border: 1px solid var(--water);
+  background: var(--water);
+  color: #ffffff;
+  border-radius: 2px;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.btn[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn.ghost {
+  background: none;
+  color: var(--water);
+}
+
+.note {
+  font-family: var(--cond);
+  font-size: 13px;
+  color: var(--soft);
+}
+
+.flag {
+  border-left: 3px solid var(--route);
+  background: var(--shade);
+  padding: 10px 14px;
+  font-family: var(--cond);
+  font-size: 14px;
+  margin-bottom: 10px;
+  border-radius: 0 2px 2px 0;
+  text-align: left;
+}
+
+.flag.ok {
+  border-left-color: var(--good);
+}
+
+#toast {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  background: var(--water);
+  color: #ffffff;
+  font-family: var(--cond);
+  font-size: 15px;
+  padding: 10px 20px;
+  border-radius: 2px;
+  z-index: 50;
+  max-width: 88vw;
+  text-align: center;
+}
+
+#toast[hidden] {
+  display: none;
+}

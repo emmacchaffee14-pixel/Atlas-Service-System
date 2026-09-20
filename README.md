@@ -17,11 +17,20 @@
 6. Authentication → URL Configuration → Site URL `https://service.atlasuga.com`.
    While developing, also add `http://localhost:5173` to Redirect URLs or the
    invite links will bounce.
-7. Deploy an Edge Function `invite-member` that calls
-   `auth.admin.inviteUserByEmail()` and stamps `roster.invited_at`. It needs
-   the service role key as a secret — that key must never reach the browser.
-   Officers call this function from Settings; it is the only way an account
-   gets created.
+7. Deploy the `invite-member` Edge Function (`supabase/functions/invite-member`).
+   It calls `auth.admin.inviteUserByEmail()` and stamps `roster.invited_at`.
+   `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected automatically —
+   nothing to set for those. The invite link's landing page defaults to
+   `https://service.atlasuga.com/setup`; override it for local testing with a
+   function secret:
+   ```bash
+   supabase link --project-ref YOUR-PROJECT-REF
+   supabase functions deploy invite-member
+   supabase secrets set APP_URL=http://localhost:5173/setup   # optional, local only
+   ```
+   Officers call this function from Settings, passing their own session
+   token as the `Authorization` bearer — the function checks `is_officer`
+   itself before inviting anyone. It is the only way an account gets created.
 
 ## 2. Local
 
