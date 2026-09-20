@@ -7,11 +7,15 @@
 3. SQL Editor → paste `supabase/seed.sql` → Run.
    Then Settings → Data API for the Project URL, and Settings → API Keys for
    the **publishable** key. Both go in `.env.local`.
-4. Make yourself an officer:
+4. Make yourself an officer and an admin — Settings (requirement rules,
+   inviting members, promoting officers and admins) is admin-only, and there
+   is no bootstrap path into it except by hand here:
    ```sql
-   update roster set is_officer = true where email = 'YOUR@uga.edu';
+   update roster set is_officer = true, is_admin = true where email = 'YOUR@uga.edu';
    ```
-   (Add your own row first if you are not on the member roster.)
+   (Add your own row first if you are not on the member roster.) Everyone
+   after this first admin is promoted from Settings — officer by any admin,
+   admin by any admin.
 5. Authentication → Providers → **enable Email**, with "Confirm email" on.
    Set a minimum password length of 8.
 6. Authentication → URL Configuration → Site URL `https://service.atlasuga.com`.
@@ -28,8 +32,8 @@
    supabase functions deploy invite-member
    supabase secrets set APP_URL=http://localhost:5173/setup   # optional, local only
    ```
-   Officers call this function from Settings, passing their own session
-   token as the `Authorization` bearer — the function checks `is_officer`
+   Admins call this function from Settings, passing their own session
+   token as the `Authorization` bearer — the function checks `is_admin`
    itself before inviting anyone. It is the only way an account gets created.
 
 ## 2. Local

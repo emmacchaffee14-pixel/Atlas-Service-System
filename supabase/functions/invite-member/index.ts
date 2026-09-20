@@ -1,6 +1,6 @@
 // invite-member — the only way an Atlas account gets created.
 //
-// Called by a signed-in officer from Settings. Never called with a bypass
+// Called by a signed-in admin from Settings. Never called with a bypass
 // or a generated password: this issues a real Supabase invite email with a
 // one-time link, and the member chooses their own password on /setup.
 //
@@ -61,11 +61,11 @@ Deno.serve(async (req) => {
 
   const { data: callerRoster, error: callerRosterError } = await admin
     .from("roster")
-    .select("is_officer")
+    .select("is_admin")
     .eq("email", callerEmail)
     .maybeSingle();
-  if (callerRosterError || !callerRoster?.is_officer) {
-    return json({ ok: false, reason: "not_an_officer" }, 403);
+  if (callerRosterError || !callerRoster?.is_admin) {
+    return json({ ok: false, reason: "not_an_admin" }, 403);
   }
 
   let body: { email?: string };

@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import GlobeMark from '../components/GlobeMark.jsx'
-import Toast from '../components/Toast.jsx'
-import { useToast } from '../hooks/useToast.js'
+import { useToast } from '../context/ToastContext.jsx'
 import { supabase } from '../lib/supabaseClient.js'
 
 function keyOf(email) {
@@ -56,8 +55,9 @@ function Terminal({ role, heading, blurb, note, onSubmit, busy }) {
 }
 
 export default function Landing() {
-  const [message, toast] = useToast()
+  const toast = useToast()
   const [busy, setBusy] = useState(false)
+  const navigate = useNavigate()
 
   async function handleSignIn(role, email, password) {
     const k = keyOf(email)
@@ -92,8 +92,8 @@ export default function Landing() {
       setBusy(false)
       return
     }
-    toast(`Welcome back, ${rosterRow.full_name.split(' ')[0]}.`)
     setBusy(false)
+    navigate(role === 'admin' ? '/admin' : '/member/opportunities')
   }
 
   return (
@@ -126,8 +126,6 @@ export default function Landing() {
         First time here? <Link to="/setup">Set Up Your Account</Link> using the link from your
         welcome email.
       </p>
-
-      <Toast message={message} />
     </div>
   )
 }

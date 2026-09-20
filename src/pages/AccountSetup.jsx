@@ -1,17 +1,16 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import GlobeMark from '../components/GlobeMark.jsx'
-import Toast from '../components/Toast.jsx'
-import { useToast } from '../hooks/useToast.js'
+import { useToast } from '../context/ToastContext.jsx'
 import { supabase } from '../lib/supabaseClient.js'
 
 export default function AccountSetup() {
-  const [message, toast] = useToast()
+  const toast = useToast()
+  const navigate = useNavigate()
   const [session, setSession] = useState(undefined) // undefined = still checking
   const [password, setPassword] = useState('')
   const [password2, setPassword2] = useState('')
   const [busy, setBusy] = useState(false)
-  const [done, setDone] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session))
@@ -33,13 +32,19 @@ export default function AccountSetup() {
     }
     setBusy(true)
     const { error } = await supabase.auth.updateUser({ password })
-    setBusy(false)
     if (error) {
+      setBusy(false)
       toast('Could not set that password. Try again.')
       return
     }
-    setDone(true)
-    toast('Password set. You are signed in.')
+    const { data: rosterRow } = await supabase
+      .from('roster')
+      .select('is_officer')
+      .eq('email', session.user.email.toLowerCase())
+      .maybeSingle()
+    setBusy(false)
+    toast('Account created. You are signed in.')
+    navigate(rosterRow?.is_officer ? '/admin' : '/member/opportunities')
   }
 
   return (
@@ -66,7 +71,7 @@ export default function AccountSetup() {
           </>
         )}
 
-        {session && !done && (
+        {session && (
           <>
             <p>
               Signed in as <strong>{session.user.email}</strong>. Choose a password only you
@@ -107,19 +112,7 @@ export default function AccountSetup() {
             </p>
           </>
         )}
-
-        {session && done && (
-          <>
-            <div className="flag ok">Your account is ready.</div>
-            <p className="note">
-              You are signed in as {session.user.email}. Officer and member pages are on their
-              way.
-            </p>
-          </>
-        )}
       </div>
-
-      <Toast message={message} />
     </div>
   )
 }

@@ -27,8 +27,12 @@ create table if not exists orgs (
   impact_metric  text,
   givepulse_code text,
   givepulse_link text,
+  website        text,                            -- the partner's own site, separate from GivePulse
   active         boolean not null default true
 );
+
+-- Safe to re-run against an already-provisioned orgs table.
+alter table orgs add column if not exists website text;
 
 create table if not exists events (
   id         text primary key,
@@ -48,9 +52,18 @@ create table if not exists roster (
   full_name    text not null,
   mentor_id    bigint references mentors(id) on delete set null,
   is_officer   boolean not null default false,
+  is_admin     boolean not null default false,  -- elevated officer: Settings access
   invited_at   timestamptz,          -- set when the welcome email goes out
-  activated_at timestamptz           -- set when they choose their password
+  activated_at timestamptz,          -- set when they choose their password
+  constraint roster_admin_is_officer check (not is_admin or is_officer)
 );
+
+-- Safe to re-run against an already-provisioned roster table.
+alter table roster add column if not exists is_admin boolean not null default false;
+do $$ begin
+  alter table roster add constraint roster_admin_is_officer check (not is_admin or is_officer);
+exception when duplicate_object then null;
+end $$;
 
 -- profiles links a real auth user to their roster row.
 create table if not exists profiles (
@@ -82,9 +95,12 @@ end $$;
 -- privileges and quietly bypasses every policy below — one unguarded view
 -- undoes the whole table's RLS. With it, the view obeys the caller's
 -- policies on roster.
-create or replace view account_status
+-- drop + create, not `create or replace`: Postgres only allows appending
+-- trailing columns to a view in place, and is_admin sits before status.
+drop view if exists account_status;
+create view account_status
   with (security_invoker = true) as
-  select r.email, r.full_name, r.is_officer,
+  select r.email, r.full_name, r.is_officer, r.is_admin,
          case when r.activated_at is not null then 'Active'
               when r.invited_at   is not null then 'Invited'
               else 'Not invited' end as status,
@@ -99,12 +115,34 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function handle_new_user();
 
+-- Promoting or demoting officer/admin status is an admin-only action, not
+-- merely an officer one — Settings (where this happens) is admin-gated.
+-- Skipped when there is no auth.uid() (the SQL editor, running as
+-- postgres) so bootstrapping the first officer/admin by hand still works.
+create or replace function guard_role_changes()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is not null
+     and (new.is_officer is distinct from old.is_officer
+          or new.is_admin is distinct from old.is_admin)
+     and not is_admin() then
+    raise exception 'Only an admin can change officer or admin status.';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists on_roster_role_change on roster;
+create trigger on_roster_role_change
+  before update on roster
+  for each row execute function guard_role_changes();
+
 -- ── Activity ───────────────────────────────────────────────────────
 
 create table if not exists signups (
   id             bigint generated always as identity primary key,
   event_id       text not null references events(id) on delete cascade,
   member_email   text not null references roster(email) on delete cascade,
+  member_name    text,                          -- denormalized: see roster_read below
   mentor_id      bigint references mentors(id) on delete set null,
   transportation boolean not null default false,
   advocating     boolean not null default false,
@@ -112,6 +150,11 @@ create table if not exists signups (
   created_at     timestamptz not null default now(),
   unique (event_id, member_email)               -- nobody claims two spots
 );
+
+-- Safe to re-run against an already-provisioned signups table.
+alter table signups add column if not exists member_name text;
+update signups s set member_name = r.full_name
+  from roster r where r.email = s.member_email and s.member_name is null;
 
 create table if not exists service_logs (
   id           bigint generated always as identity primary key,
@@ -160,6 +203,16 @@ returns boolean language sql stable security definer set search_path = public as
                    where p.id = auth.uid()), false)
 $$;
 
+-- Admin is the tier above officer: Settings (requirement rules, inviting
+-- members, promoting officers and admins) is admin-only. Every admin is
+-- also an officer (see roster_admin_is_officer above).
+create or replace function is_admin()
+returns boolean language sql stable security definer set search_path = public as $$
+  select coalesce((select r.is_admin from roster r
+                   join profiles p on p.email = r.email
+                   where p.id = auth.uid()), false)
+$$;
+
 -- ── Claiming a spot, atomically ────────────────────────────────────
 -- This is the whole point of leaving spreadsheets behind. The row lock
 -- means two people tapping the last slot at the same instant produce one
@@ -173,6 +226,7 @@ create or replace function claim_slot(
 ) returns json language plpgsql security definer set search_path = public as $$
 declare
   v_email    text := me();
+  v_name     text;
   v_capacity int;
   v_taken    int;
 begin
@@ -197,9 +251,16 @@ begin
     end if;
   end if;
 
-  insert into signups (event_id, member_email, mentor_id,
+  -- A member can only read their OWN roster row (see roster_read below), so
+  -- the "who else is going" list on Opportunities can't join against roster
+  -- for other people's names. Stamping member_name here, once, at claim
+  -- time — as security definer, bypassing that restriction — is what makes
+  -- signups the source of names instead.
+  select full_name into v_name from roster where email = v_email;
+
+  insert into signups (event_id, member_email, member_name, mentor_id,
                        transportation, advocating, notes)
-  values (p_event_id, v_email, p_mentor_id,
+  values (p_event_id, v_email, v_name, p_mentor_id,
           p_transportation, p_advocating, p_notes);
 
   -- First time a member names their mentor, remember it on the roster.
@@ -225,7 +286,7 @@ alter table nominations  enable row level security;
 do $$
 declare t text;
 begin
-  foreach t in array array['settings','mentors','orgs','events'] loop
+  foreach t in array array['mentors','orgs','events'] loop
     execute format('drop policy if exists %I_read on %I', t, t);
     execute format('create policy %I_read on %I for select to authenticated using (true)', t, t);
     execute format('drop policy if exists %I_write on %I', t, t);
@@ -233,6 +294,14 @@ begin
                       using (is_officer()) with check (is_officer())', t, t);
   end loop;
 end $$;
+
+-- Settings lives on the Settings page, which is admin-only — the
+-- requirement rules are more sensitive than a mentor roster edit.
+drop policy if exists settings_read on settings;
+create policy settings_read on settings for select to authenticated using (true);
+drop policy if exists settings_write on settings;
+create policy settings_write on settings for all to authenticated
+  using (is_admin()) with check (is_admin());
 
 -- Roster holds all 65 UGA emails. A member needs their OWN row (name,
 -- mentor, standing) and nothing else — names of people at an event come
