@@ -1,0 +1,1252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Atlas Service</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400;1,500&family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --base:#FFFFFF; --raise:#F5F6F8; --ink:#111418; --soft:#5B6676;
+  --rule:#D5D9E0; --olive:#7286A3; --water:#0F2340; --route:#111418;
+  --good:#0F2340; --shade:#EDEFF3;
+  --serif:'Jost','Futura','Century Gothic',Helvetica,Arial,sans-serif;
+  --cond:'Jost','Futura','Century Gothic',Helvetica,Arial,sans-serif;
+  --script:'Cormorant Garamond',Georgia,'Times New Roman',serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --base:#0B1524;--raise:#132135;--ink:#E8ECF2;--soft:#93A2B7;--rule:#26374F;
+  --olive:#8FA6C4;--water:#BFD0E8;--route:#E8ECF2;--good:#BFD0E8;--shade:#17263B}}
+:root[data-theme="dark"]{--base:#0B1524;--raise:#132135;--ink:#E8ECF2;--soft:#93A2B7;
+  --rule:#26374F;--olive:#8FA6C4;--water:#BFD0E8;--route:#E8ECF2;--good:#BFD0E8;--shade:#17263B}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--base);color:var(--ink);font-family:var(--cond);font-size:16px;
+  line-height:1.55;-webkit-font-smoothing:antialiased}
+h1,h2,h3{margin:0;font-family:var(--serif);font-weight:600;line-height:1.22;
+  letter-spacing:.01em}
+p{margin:0 0 .7em}
+button{font:inherit;color:inherit;cursor:pointer}
+input,select,textarea{font:inherit;color:inherit}
+a{color:var(--water)}
+:focus-visible{outline:2px solid var(--water);outline-offset:2px;border-radius:2px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.hide{display:none!important}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px 80px}
+header.top{border-bottom:1px solid var(--rule);background:var(--base);
+  position:sticky;top:env(safe-area-inset-top,0px);z-index:20}
+.topin{max-width:1080px;margin:0 auto;padding:12px 20px;display:flex;gap:14px;
+  align-items:center;flex-wrap:wrap}
+.mark{font-family:var(--serif);font-weight:600;font-size:19px;letter-spacing:.1em;
+  background:none;border:0;padding:0;color:var(--water);display:flex;align-items:center;gap:10px}
+.mark em{font-style:normal;font-weight:300;color:var(--soft)}
+.globe{width:28px;height:28px;flex:0 0 auto;fill:none;stroke:var(--water);
+  stroke-linecap:butt;overflow:visible}
+nav.main{display:flex;gap:2px;flex-wrap:wrap;margin-left:6px}
+nav.main a{font-family:var(--cond);font-size:13px;font-weight:500;letter-spacing:.09em;
+  padding:7px 13px;text-decoration:none;color:var(--soft);border-radius:2px}
+nav.main a.on{background:var(--water);color:#FFFFFF}
+.session{margin-left:auto;font-family:var(--cond);font-size:13px;color:var(--soft);
+  display:flex;gap:10px;align-items:center}
+.session b{color:var(--ink);font-weight:600}
+.session button{background:none;border:0;color:var(--water);text-decoration:underline;
+  font-family:var(--cond);font-size:13px;padding:0}
+.gate{min-height:72vh;display:flex;flex-direction:column;justify-content:center;
+  align-items:center;text-align:center;padding:56px 0 28px}
+.gatemark{width:92px;height:92px;fill:none;stroke:var(--water);
+  stroke-linecap:butt;overflow:visible;margin-bottom:24px}
+.gate h1{font-size:clamp(26px,3.6vw,36px);font-weight:600;letter-spacing:.16em;
+  line-height:1.2;color:var(--water)}
+.gate .sub{font-family:var(--script);font-style:italic;font-size:22px;line-height:1.4;
+  color:var(--soft);margin:14px 0 0}
+.gate .rule{width:56px;height:1px;background:var(--rule);margin:26px 0 4px}
+.gatefoot{font-family:var(--cond);font-size:14px;color:var(--soft);margin-top:26px}
+.gatefoot a{font-weight:500;letter-spacing:.04em}
+.acctcode{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:14px;
+  letter-spacing:.12em;font-weight:600}
+.tmpl{width:100%;min-height:190px;font-family:var(--cond);font-size:14px;line-height:1.6}
+.termgrid .term{text-align:left}
+.termgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(288px,1fr));
+  gap:1px;background:var(--rule);border:1px solid var(--rule);margin-top:34px}
+.term{background:var(--base);padding:26px 24px 24px}
+.term h2{font-size:17px;font-family:var(--serif);letter-spacing:.12em;font-weight:600}
+.term p{font-family:var(--script);font-style:italic;font-size:18px;color:var(--soft);
+  margin:8px 0 18px;max-width:42ch}
+.term .row{display:flex;gap:12px;flex-wrap:wrap;align-items:stretch}
+.term input{flex:1 1 190px}
+.term .row .btn{flex:0 0 auto}
+.termnote{font-family:var(--cond);font-size:13px;color:var(--soft);margin-top:12px}
+section{margin-top:38px}
+.plate{display:flex;align-items:baseline;gap:12px;border-bottom:2px solid var(--water);
+  padding-bottom:5px;margin-bottom:16px;flex-wrap:wrap}
+.plate h2{font-size:15px;font-family:var(--serif);letter-spacing:.11em;font-weight:600}
+.plate span{font-family:var(--cond);font-size:13px;color:var(--soft);margin-left:auto}
+.lede{font-family:var(--script);font-style:italic;font-size:19px;color:var(--soft);
+  max-width:62ch;margin-bottom:18px}
+.pagehead{padding-top:30px}
+.pagehead h1{font-size:clamp(26px,3.9vw,34px);font-weight:600;letter-spacing:.015em}
+.pagehead p{font-family:var(--script);font-style:italic;font-size:20px;line-height:1.45;
+  color:var(--soft);max-width:60ch;margin-top:10px}
+.figs{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:1px;
+  background:var(--rule);border:1px solid var(--rule)}
+.fig{background:var(--base);padding:12px 14px}
+.fig b{display:block;font-family:var(--serif);font-weight:600;font-size:30px;line-height:1.1;color:var(--water)}
+.fig span{font-family:var(--cond);font-size:13px;color:var(--soft)}
+.fig.warn b{color:var(--route)}
+.muster{display:grid;grid-template-columns:repeat(auto-fill,minmax(13px,1fr));gap:4px;
+  margin:4px 0 14px;max-width:620px}
+.mk{aspect-ratio:1;border:1px solid var(--rule);background:var(--raise);border-radius:1px}
+.mk[data-s="none"]{background:var(--base)}
+.mk[data-s="met"]{background:var(--good);border-color:var(--good)}
+.mk[data-s="part"]{background:var(--olive);border-color:var(--olive);opacity:.55}
+.mk[data-s="signed"]{border-color:var(--water);border-style:dashed}
+.legend{font-family:var(--cond);font-size:13px;color:var(--soft);display:flex;flex-wrap:wrap;gap:16px}
+.legend i{display:inline-block;width:10px;height:10px;border:1px solid var(--rule);
+  background:var(--raise);margin-right:5px;vertical-align:-1px;border-radius:1px}
+.legend .met i{background:var(--good);border-color:var(--good)}
+.legend .part i{background:var(--olive);border-color:var(--olive);opacity:.55}
+.legend .sig i{border-color:var(--water);border-style:dashed}
+table{width:100%;border-collapse:collapse;font-family:var(--cond);font-size:15px}
+th{text-align:left;font-weight:600;border-bottom:1.5px solid var(--water);padding:7px 10px;white-space:nowrap}
+th.sort{cursor:pointer}
+th.sort:hover{color:var(--water)}
+td{border-bottom:1px solid var(--rule);padding:7px 10px;vertical-align:top;white-space:nowrap}
+td.wrapok{white-space:normal;min-width:220px}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+tr.tot td{border-top:1.5px solid var(--water);border-bottom:0;font-weight:700}
+.scroll{overflow-x:auto}
+.yes{color:var(--water);font-weight:600}
+.no{color:var(--soft)}
+.entry{border-top:1px solid var(--rule);padding:16px 0;display:grid;
+  grid-template-columns:1fr auto;gap:10px 22px;align-items:start}
+.entry:last-child{border-bottom:1px solid var(--rule)}
+.entry h3{font-size:19px;font-family:var(--serif)}
+.where{font-family:var(--cond);font-size:14px;color:var(--soft)}
+.where b{color:var(--olive);font-weight:600}
+.desc{font-size:15px;color:var(--soft);max-width:60ch;margin:6px 0 0}
+.givep{font-family:var(--cond);font-size:13px;color:var(--water);margin-top:6px}
+.slotside{text-align:right;min-width:158px}
+.pips{display:flex;gap:3px;justify-content:flex-end;margin-bottom:6px;flex-wrap:wrap}
+.pip{width:15px;height:15px;border:1px solid var(--olive);border-radius:1px}
+.pip.on{background:var(--olive)}
+.pip.mine{background:var(--water);border-color:var(--water)}
+.cnt{font-family:var(--cond);font-size:13px;color:var(--soft);display:block;margin-bottom:8px}
+.cnt.full{color:var(--route)}
+.roster{font-family:var(--cond);font-size:13px;color:var(--soft);margin-top:10px;
+  grid-column:1/-1;border-top:1px dotted var(--rule);padding-top:8px}
+.roster ol{margin:4px 0 0;padding-left:20px;columns:2;column-gap:28px}
+.roster li{margin-bottom:1px}
+.roster li.open{color:var(--olive);opacity:.65;list-style:circle}
+.btn{font-family:var(--cond);font-size:13px;font-weight:500;letter-spacing:.09em;padding:11px 22px;
+  border:1px solid var(--water);background:var(--water);color:#FFFFFF;border-radius:2px;
+  text-decoration:none;display:inline-block}
+.btn[disabled]{opacity:.4;cursor:not-allowed}
+.btn.ghost{background:none;color:var(--water)}
+.btn.warn{border-color:var(--route);color:var(--route);background:none}
+.btn.sm{font-size:12px;padding:6px 13px;letter-spacing:.07em}
+form.card{border:1px solid var(--rule);background:var(--raise);padding:28px;border-radius:3px;
+  max-width:880px}
+.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 24px;
+  align-items:end}
+.fields.one{grid-template-columns:1fr}
+.fields>div{display:flex;flex-direction:column;justify-content:flex-end;min-width:0}
+.span2{grid-column:1/-1}
+label{display:block;font-family:var(--cond);font-size:12px;font-weight:600;margin-bottom:7px;
+  line-height:1.35;letter-spacing:.07em;color:var(--ink)}
+label small{display:block;font-weight:400;color:var(--soft);white-space:normal;margin-top:3px;
+  letter-spacing:.01em;font-size:12px;text-transform:none}
+@media (min-width:660px){label{white-space:nowrap}}
+@media (max-width:659px){.fields{grid-template-columns:1fr}}
+input,select,textarea{width:100%;padding:0 12px;border:1px solid var(--rule);
+  background:var(--base);border-radius:2px;font-family:var(--cond);font-size:15px;
+  height:44px;line-height:normal;margin:0;-webkit-appearance:none;appearance:none}
+select{background-image:linear-gradient(45deg,transparent 50%,var(--soft) 50%),
+  linear-gradient(135deg,var(--soft) 50%,transparent 50%);
+  background-position:calc(100% - 17px) 20px,calc(100% - 12px) 20px;
+  background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:36px}
+input[type=date],input[type=time]{padding-right:8px}
+textarea{height:auto;min-height:104px;padding:11px 12px;resize:vertical;line-height:1.55}
+.radios{display:flex;flex-direction:column;gap:9px;font-family:var(--cond);font-size:15px;
+  min-height:44px;justify-content:center}
+.radios.inline{flex-direction:row;gap:26px;align-items:center}
+.radios label{display:flex;gap:9px;align-items:flex-start;font-weight:400;margin:0;
+  white-space:normal;line-height:1.4}
+.radios input{width:auto;height:auto;flex:0 0 auto;margin:3px 0 0;-webkit-appearance:radio;
+  appearance:radio}
+.formfoot{margin-top:18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.note{font-family:var(--cond);font-size:13px;color:var(--soft)}
+.filters{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:18px;align-items:flex-end}
+.filters>div{flex:0 1 186px;display:flex;flex-direction:column;justify-content:flex-end}
+.flag{border-left:3px solid var(--route);background:var(--shade);padding:10px 14px;
+  font-family:var(--cond);font-size:14px;margin-bottom:10px;border-radius:0 2px 2px 0}
+.flag.ok{border-left-color:var(--good)}
+.empty{font-family:var(--cond);color:var(--soft);padding:20px 0;font-size:15px}
+.nom{border:1px solid var(--rule);padding:14px;border-radius:2px;margin-bottom:10px;background:var(--raise)}
+.nom h3{font-size:18px;font-family:var(--serif)}
+.nom dl{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;font-family:var(--cond);font-size:14px;margin:8px 0 0}
+.nom dt{color:var(--soft)}
+.nom dd{margin:0}
+.tag{font-family:var(--cond);font-size:12px;font-weight:600;padding:2px 8px;border-radius:2px;
+  border:1px solid var(--olive);color:var(--olive)}
+.tag.ok{border-color:var(--good);color:var(--good)}
+.tag.no{border-color:var(--route);color:var(--route)}
+#toast{position:fixed;left:50%;transform:translateX(-50%);
+  bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--water);color:#FFFFFF;
+  font-family:var(--cond);font-size:15px;padding:10px 20px;border-radius:2px;z-index:50;
+  max-width:88vw;text-align:center}
+#toast[hidden]{display:none}
+@media (max-width:620px){
+  .entry{grid-template-columns:1fr}
+  .slotside{text-align:left}
+  .pips{justify-content:flex-start}
+  .plate span{width:100%;margin-left:0}
+  .roster ol{columns:1}
+}
+</style>
+</head>
+<body>
+<header class="top" id="hdr"><div class="topin">
+  <button class="mark" id="home" aria-label="Atlas Service, home">
+    <svg class="globe" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+      <circle cx="24" cy="24" r="21.85" stroke-width="4.3"/>
+      <ellipse cx="24" cy="24" rx="10.7" ry="21.85" stroke-width="2.6"/>
+      <line x1="24" y1="2.15" x2="24" y2="45.85" stroke-width="2.4"/>
+      <path d="M5.3 17.9h37.4M5.3 30.1h37.4" stroke-width="2.7"/>
+    </svg>
+    <span>Atlas <em>Service</em></span>
+  </button>
+  <nav class="main" id="nav"></nav>
+  <div class="session" id="session"></div>
+</div></header>
+<div class="wrap" id="app"></div>
+<div id="toast" hidden></div>
+<script>
+(function(){
+"use strict";
+var $=function(s){return document.querySelector(s)};
+var db=null,userCap=null,ownerish=false;
+var S={settings:null,roster:[],mentors:[],officers:[],orgs:{},events:[],signups:[],
+  logs:[],noms:[],accounts:{},invites:{},session:null,route:"",sort:{k:"name",d:1},filt:{}};
+
+function toast(m){var t=$("#toast");t.textContent=m;t.hidden=false;
+  clearTimeout(toast._t);toast._t=setTimeout(function(){t.hidden=true},3800)}
+function el(t,c,x){var n=document.createElement(t);if(c)n.className=c;if(x!=null)n.textContent=x;return n}
+function td(x,c){var n=el("td",c||null);n.textContent=x;return n}
+function esc(v){return v==null?"":String(v)}
+function round(n){return Math.round(n*10)/10}
+function keyOf(e){return String(e||"").trim().toLowerCase()}
+function store(k,v){try{if(v===undefined)return localStorage.getItem(k);
+  if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v)}catch(e){}return null}
+function fmtDate(iso){if(!iso)return"";var p=String(iso).split("-");if(p.length!==3)return iso;
+  return new Date(+p[0],+p[1]-1,+p[2]).toLocaleDateString(undefined,
+    {weekday:"short",month:"short",day:"numeric"})}
+function req(){return S.settings&&S.settings.hourRequirement!=null?+S.settings.hourRequirement:3}
+function cap(){return S.settings&&S.settings.swabCap!=null?+S.settings.swabCap:1}
+function eventById(id){for(var i=0;i<S.events.length;i++)if(S.events[i].id===id)return S.events[i];return null}
+function orgOf(ev){return(ev&&S.orgs[ev.orgId])||{}}
+function evName(ev){return ev?((orgOf(ev).name||ev.orgId)+" \u2014 "+fmtDate(ev.date)):""}
+function isSwab(ev){return!!ev&&ev.orgId==="ados"}
+function claimsFor(id){return S.signups.filter(function(s){return s.eventId===id})}
+function logsFor(id){return S.logs.filter(function(l){return l.eventId===id})}
+function memberBy(email){var k=keyOf(email);
+  for(var i=0;i<S.roster.length;i++)if(keyOf(S.roster[i].email)===k)return S.roster[i];return null}
+function groupOf(n){for(var i=0;i<S.mentors.length;i++)if(S.mentors[i].name===n)return S.mentors[i].group||"";return ""}
+function stats(email){
+  var k=keyOf(email);
+  var mine=S.logs.filter(function(l){return l.memberKey===k});
+  var total=0,swab=0;
+  mine.forEach(function(l){var h=+l.hours||0;total+=h;if(isSwab(eventById(l.eventId)))swab+=h});
+  return{total:round(total),swab:round(swab),countable:round(total-Math.max(0,swab-cap())),
+    logs:mine.length,claims:S.signups.filter(function(s){return s.memberKey===k}).length,
+    met:(total-Math.max(0,swab-cap()))>=req()};
+}
+function evStats(ev){
+  var c=claimsFor(ev.id),lg=logsFor(ev.id),hours=0,rep=0,qn=0;
+  lg.forEach(function(l){hours+=+l.hours||0;
+    if(l.quantity!=null&&l.quantity!==""){rep+=+l.quantity||0;qn++}});
+  return{claimed:c.length,cap:+ev.capacity||0,logs:lg.length,hours:round(hours),
+    rep:rep,ver:qn?Math.round(rep/qn):0};
+}
+function go(r){location.hash="#"+r}
+function route(){
+  var h=(location.hash||"").replace(/^#/,"")||"/";
+  S.route=h;var s=S.session;
+  if(h!=="/"&&h!=="/setup"&&!s){go("/");return}
+  if(h==="/setup"&&s){go(s.role==="admin"?"/admin":"/member/opportunities");return}
+  if(s&&s.role==="member"&&h.indexOf("/admin")===0){go("/member/opportunities");return}
+  if(s&&s.role==="admin"&&h.indexOf("/member")===0&&h!=="/member/opportunities"){go("/admin");return}
+  render();
+}
+window.addEventListener("hashchange",route);
+$("#home").onclick=function(){go(S.session?(S.session.role==="admin"?"/admin":"/member/opportunities"):"/")};
+var MEMBER_NAV=[["/member/opportunities","Opportunities"],["/member/log","Log Service"],
+  ["/member/nominate","Nominate"],["/member/standing","My Standing"]];
+var ADMIN_NAV=[["/admin","Dashboard"],["/admin/members","Members"],["/admin/groups","Groups"],
+  ["/admin/events","Events"],["/admin/nominations","Nominations"],["/admin/settings","Settings"]];
+function renderChrome(){
+  var nav=$("#nav"),ses=$("#session");nav.textContent="";ses.textContent="";
+  if(!S.session){$("#hdr").classList.add("hide");return}
+  $("#hdr").classList.remove("hide");
+  (S.session.role==="admin"?ADMIN_NAV:MEMBER_NAV).forEach(function(p){
+    var a=el("a",S.route===p[0]?"on":null,p[1]);a.href="#"+p[0];nav.appendChild(a)});
+  var who=el("span");
+  who.appendChild(document.createTextNode(S.session.role==="admin"?"Officer \u00b7 ":""));
+  who.appendChild(el("b",null,S.session.name));ses.appendChild(who);
+  var out=el("button",null,"Sign out");
+  out.onclick=function(){S.session=null;store("atlas.session",null);go("/")};
+  ses.appendChild(out);
+}
+function labelFor(id,text,sub){var l=el("label",null,text);if(id)l.htmlFor=id;
+  if(sub)l.appendChild(el("small",null,sub));return l}
+function opt(v,t){var o=el("option",null,t);o.value=v;return o}
+function field(lbl,type,val,id,reqd,sub,ro,span){
+  var w=el("div",span?"span2":null);w.appendChild(labelFor(id,lbl,sub));
+  var i=el("input");i.type=type;i.id=id;if(val)i.value=val;if(reqd)i.required=true;
+  if(ro){i.readOnly=true;i.style.color="var(--soft)"}
+  w.appendChild(i);return w}
+function area(id,lbl,sub,reqd){
+  var w=el("div","span2");w.appendChild(labelFor(id,lbl,sub));
+  var t=el("textarea");t.id=id;if(reqd)t.required=true;w.appendChild(t);return w}
+function pageHead(a,title,sub){var h=el("div","pagehead");h.appendChild(el("h1",null,title));
+  if(sub)h.appendChild(el("p",null,sub));a.appendChild(h)}
+function plate(title,right){var p=el("div","plate");p.appendChild(el("h2",null,title));
+  if(right)p.appendChild(el("span",null,right));return p}
+function table(heads,classes){
+  var w=el("div","scroll"),t=el("table"),th=el("thead"),tr=el("tr");
+  heads.forEach(function(h,i){tr.appendChild(el("th",(classes&&classes[i])||null,h))});
+  th.appendChild(tr);t.appendChild(th);var tb=el("tbody");t.appendChild(tb);w.appendChild(t);
+  return{wrap:w,body:tb,head:tr}}
+
+/* ───────── credentials (prototype only) ───────── */
+/* Supabase hashes passwords properly in production; this stands in so the
+   invite-and-set-your-own-password flow can be demonstrated end to end.
+   A password is never stored or transmitted in the clear. */
+function randCode(n){
+  var A="ABCDEFGHJKMNPQRSTUVWXYZ23456789",o="",b=new Uint8Array(n);
+  crypto.getRandomValues(b);
+  for(var i=0;i<n;i++)o+=A[b[i]%A.length];
+  return o;
+}
+async function hashPw(pw,salt){
+  var buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(salt+":"+pw));
+  return Array.prototype.map.call(new Uint8Array(buf),
+    function(b){return("0"+b.toString(16)).slice(-2)}).join("");
+}
+function isOfficerEmail(e){var k=keyOf(e);
+  return S.officers.some(function(x){return keyOf(x.email)===k})}
+function officerRec(e){var k=keyOf(e);
+  return S.officers.filter(function(x){return keyOf(x.email)===k})[0]||null}
+function accountFor(e){return S.accounts[keyOf(e)]||null}
+function displayName(e){
+  var m=memberBy(e);if(m)return m.name;
+  var o=officerRec(e);return o&&o.name?o.name:e;
+}
+
+async function signIn(role,email,pw){
+  var k=keyOf(email);
+  if(!k||!pw){toast("Enter your email and password.");return}
+  if(role==="member"&&!memberBy(k)){
+    toast("That email is not on the Fall 2026 roster. Check with an officer.");return}
+  if(role==="admin"&&!isOfficerEmail(k)){
+    toast("That email is not on the officer list.");return}
+  var acct=accountFor(k);
+  if(!acct){toast("No account yet. Use Set Up Your Account with the code from your welcome email.");return}
+  var h=await hashPw(pw,acct.salt);
+  if(h!==acct.hash){toast("That password is not right.");return}
+  S.session={role:role,email:k,name:displayName(k)};
+  store("atlas.session",JSON.stringify(S.session));
+  go(role==="admin"?"/admin":"/member/opportunities");
+  toast("Welcome back, "+S.session.name.split(" ")[0]+".");
+}
+
+async function createAccount(email,code,pw,pw2,firstOfficer,name){
+  var k=keyOf(email);
+  if(!k){toast("Enter your UGA email.");return}
+  if(pw.length<8){toast("Pick a password of at least 8 characters.");return}
+  if(pw!==pw2){toast("Those two passwords do not match.");return}
+  if(accountFor(k)){toast("That account already exists. Sign in instead.");return}
+  if(firstOfficer){
+    if(!name.trim()){toast("Enter your name.");return}
+    if(S.officers.length){toast("An officer already exists. Use your invite code.");return}
+  }else{
+    if(!memberBy(k)&&!isOfficerEmail(k)){
+      toast("That email is not on the roster or the officer list.");return}
+    var inv=S.invites[k];
+    if(!inv){toast("No invite code has been issued for that email yet.");return}
+    if(inv.usedAt){toast("That code has already been used.");return}
+    if(keyOf(code)!==keyOf(inv.code)){toast("That code does not match.");return}
+  }
+  if(!needDb())return;
+  var salt=randCode(16),h=await hashPw(pw,salt);
+  try{
+    await db.collection("accounts").doc(k).set({
+      email:k,salt:salt,hash:h,createdAt:new Date().toISOString()});
+    if(firstOfficer){
+      await db.doc("roster/officers").set({list:[{name:name.trim(),email:k}]});
+    }else{
+      await db.collection("invites").doc(k).set(
+        Object.assign({},S.invites[k],{usedAt:new Date().toISOString()}));
+    }
+    var role=(firstOfficer||isOfficerEmail(k))?"admin":"member";
+    S.session={role:role,email:k,name:firstOfficer?name.trim():displayName(k)};
+    store("atlas.session",JSON.stringify(S.session));
+    go(role==="admin"?"/admin":"/member/opportunities");
+    toast("Account created. You are signed in.");
+  }catch(e){toast("Could not create that account. Try again.")}
+}
+
+/* ───────── landing ───────── */
+function gateMark(){
+  var m=document.createElementNS("http://www.w3.org/2000/svg","svg");
+  m.setAttribute("viewBox","0 0 48 48");m.setAttribute("class","gatemark");
+  m.setAttribute("aria-hidden","true");
+  m.innerHTML='<circle cx="24" cy="24" r="21.85" stroke-width="4.3"/>'+
+    '<ellipse cx="24" cy="24" rx="10.7" ry="21.85" stroke-width="2.6"/>'+
+    '<line x1="24" y1="2.15" x2="24" y2="45.85" stroke-width="2.4"/>'+
+    '<path d="M5.3 17.9h37.4M5.3 30.1h37.4" stroke-width="2.7"/>';
+  return m;
+}
+function gateHead(g,title,tagline){
+  g.appendChild(gateMark());
+  g.appendChild(el("h1",null,title));
+  g.appendChild(el("p","sub",tagline));
+  g.appendChild(el("div","rule"));
+}
+
+function viewGate(a){
+  var g=el("div","gate");
+  gateHead(g,"Atlas Service","Discover. Ignite. Lead.");
+  var grid=el("div","termgrid");
+
+  function terminal(role,heading,blurb,note){
+    var t=el("div","term");
+    t.appendChild(el("h2",null,heading));
+    t.appendChild(el("p",null,blurb));
+    var f=el("form");
+    var ew=el("div");ew.appendChild(labelFor(null,"UGA Email",null));
+    var ei=el("input");ei.type="email";ei.autocomplete="username";
+    ei.placeholder=role==="admin"?"officer@uga.edu":"you@uga.edu";
+    ew.appendChild(ei);f.appendChild(ew);
+    var pw=el("div");pw.style.marginTop="14px";
+    pw.appendChild(labelFor(null,"Password",null));
+    var pi=el("input");pi.type="password";pi.autocomplete="current-password";
+    pw.appendChild(pi);f.appendChild(pw);
+    var row=el("div","row");row.style.marginTop="18px";
+    var b=el("button","btn","Sign In");b.type="submit";row.appendChild(b);
+    f.appendChild(row);
+    f.onsubmit=function(e){e.preventDefault();signIn(role,ei.value,pi.value)};
+    t.appendChild(f);
+    t.appendChild(el("p","termnote",note));
+    return t;
+  }
+  grid.appendChild(terminal("member","Member Log In",
+    "Browse opportunities, claim a spot, and log your hours.",
+    "Use the UGA email on the cohort roster."));
+  grid.appendChild(terminal("admin","Officer Log In",
+    "Track the roster, mentor groups, events, and nominations.",
+    S.officers.length?S.officers.length+" officers have access. Manage them under Settings.":
+    "No officer accounts yet."));
+  g.appendChild(grid);
+
+  var foot=el("p","gatefoot");
+  foot.appendChild(document.createTextNode("First time here? "));
+  var lk=el("a",null,"Set Up Your Account");lk.href="#/setup";foot.appendChild(lk);
+  foot.appendChild(document.createTextNode(" using the code from your welcome email."));
+  g.appendChild(foot);
+  a.appendChild(g);
+}
+
+function viewSetup(a){
+  var g=el("div","gate");
+  var first=(S.officers.length===0&&ownerish);
+  gateHead(g,first?"First Officer":"Set Up Your Account",
+    first?"Create the account that manages everything else.":"Discover. Ignite. Lead.");
+  var t=el("div","term");t.style.maxWidth="440px";t.style.width="100%";
+  t.style.border="1px solid var(--rule)";t.style.background="var(--raise)";
+  t.appendChild(el("p",null,first?
+    "No officer exists yet, so this first account is created without a code. Every account after it needs one.":
+    "Enter the code from your welcome email, then choose a password only you know."));
+  var f=el("form");
+  var ni=null;
+  if(first){
+    var nw=el("div");nw.appendChild(labelFor(null,"Your Name",null));
+    ni=el("input");ni.type="text";nw.appendChild(ni);f.appendChild(nw);
+  }
+  function fld(lbl,type,ac,mt){
+    var w=el("div");if(mt)w.style.marginTop="14px";
+    w.appendChild(labelFor(null,lbl,null));
+    var i=el("input");i.type=type;if(ac)i.autocomplete=ac;w.appendChild(i);
+    f.appendChild(w);return i;
+  }
+  var ei=fld("UGA Email","email","username",!!first);
+  var ci=first?null:fld("Invite Code","text",null,true);
+  var p1=fld("Choose a Password","password","new-password",true);
+  var p2=fld("Confirm Password","password","new-password",true);
+  var row=el("div","row");row.style.marginTop="20px";
+  var b=el("button","btn","Create Account");b.type="submit";row.appendChild(b);
+  var back=el("a","btn ghost","Back to Log In");back.href="#/";row.appendChild(back);
+  f.appendChild(row);
+  f.onsubmit=function(e){e.preventDefault();
+    createAccount(ei.value,ci?ci.value:"",p1.value,p2.value,first,ni?ni.value:"")};
+  t.appendChild(f);
+  t.appendChild(el("p","termnote","At least 8 characters. Your password is never emailed to you."));
+  g.appendChild(t);a.appendChild(g);
+}
+
+function viewOpportunities(a){
+  pageHead(a,"Service Opportunities","Pick a slot and it is yours. Capacity is real \u2014 when a list is full, it is full.");
+  var myKey=keyOf(S.session.email),isAdmin=S.session.role==="admin";
+  var sec=el("section"),list=el("div");
+  var active=S.events.filter(function(e){return e.status!=="cancelled"})
+    .sort(function(x,y){return(x.date||"").localeCompare(y.date||"")});
+  if(!active.length)list.appendChild(el("p","empty","No events scheduled yet."));
+  active.forEach(function(ev){
+    var org=orgOf(ev),claims=claimsFor(ev.id),c=+ev.capacity||0,unlimited=c===0;
+    var mine=claims.some(function(x){return x.memberKey===myKey});
+    var full=!unlimited&&claims.length>=c;
+    var row=el("div","entry"),left=el("div");
+    left.appendChild(el("h3",null,evName(ev)));
+    var wh=el("div","where");
+    wh.appendChild(el("b",null,ev.startTime+"\u2013"+ev.endTime));
+    wh.appendChild(document.createTextNode("  "+(org.location||"Location to be confirmed")));
+    left.appendChild(wh);
+    if(org.description)left.appendChild(el("p","desc",org.description));
+    if(org.impactMetric)left.appendChild(el("div","where","Counts toward: "+org.impactMetric));
+    if(org.givepulseCode){var g=el("div","givep");
+      g.textContent=org.givepulseCode==="TBD"?
+        "A GivePulse registration is required for this partner \u2014 code coming soon.":
+        "Also register on GivePulse with code "+org.givepulseCode;
+      if(org.givepulseLink){g.appendChild(document.createTextNode(" \u00b7 "));
+        var lk=el("a",null,"open GivePulse");lk.href=org.givepulseLink;lk.target="_blank";
+        lk.rel="noopener noreferrer";g.appendChild(lk)}
+      left.appendChild(g)}
+    row.appendChild(left);
+    var right=el("div","slotside");
+    if(!unlimited&&c<=14){
+      var pips=el("div","pips");
+      for(var i=0;i<c;i++){var p=el("span","pip");if(i<claims.length)p.className="pip on";pips.appendChild(p)}
+      var idx=-1;claims.forEach(function(x,j){if(x.memberKey===myKey)idx=j});
+      if(idx>-1&&pips.children[idx])pips.children[idx].className="pip mine";
+      right.appendChild(pips)}
+    var cn=el("span","cnt"+(full&&!mine?" full":""));
+    cn.textContent=unlimited?"Open to every member":
+      (mine?"You are on this list":(full?"Full \u2014 "+c+" of "+c:(c-claims.length)+" of "+c+" open"));
+    right.appendChild(cn);
+    if(isAdmin)right.appendChild(el("span","note","Officer view \u2014 sign in as a member to claim"));
+    else if(mine){var b1=el("button","btn warn","Give up my spot");
+      b1.onclick=function(){releaseSlot(ev)};right.appendChild(b1)}
+    else if(full){var b2=el("button","btn");b2.textContent="Full";b2.disabled=true;right.appendChild(b2)}
+    else{var b3=el("a","btn","Claim a spot");b3.href="#/member/signup/"+ev.id;right.appendChild(b3)}
+    row.appendChild(right);
+    var r=el("div","roster");
+    r.appendChild(document.createTextNode(unlimited?claims.length+" attending":"Who is going"));
+    var ol=el("ol");
+    claims.forEach(function(x){ol.appendChild(el("li",null,x.memberName+(x.memberKey===myKey?" (you)":"")))});
+    if(!unlimited)for(var j=claims.length;j<c;j++)ol.appendChild(el("li","open","open"));
+    if(claims.length||!unlimited)r.appendChild(ol);
+    row.appendChild(r);list.appendChild(row)});
+  sec.appendChild(list);a.appendChild(sec);
+}
+
+function viewSignup(a,eventId){
+  var ev=eventById(eventId);
+  if(!ev){pageHead(a,"Event not found","That event is no longer listed.");return}
+  var org=orgOf(ev),claims=claimsFor(ev.id),c=+ev.capacity||0;
+  pageHead(a,"Sign up: "+evName(ev),
+    org.location?(ev.startTime+"\u2013"+ev.endTime+" \u00b7 "+org.location):"");
+  var sec=el("section");
+  if(c&&claims.length>=c){sec.appendChild(el("div","flag","This event filled up while you were deciding."));
+    a.appendChild(sec);return}
+  var f=el("form","card"),fs=el("div","fields");
+  fs.appendChild(field("Your name","text",S.session.name,"suName",true,null,true));
+  fs.appendChild(field("UGA email","email",S.session.email,"suEmail",true,null,true));
+  var mw=el("div");mw.appendChild(labelFor("suMentor","Your mentor",null));
+  var sel=el("select");sel.id="suMentor";sel.required=true;
+  sel.appendChild(opt("","Choose your mentor"));
+  S.mentors.forEach(function(m){sel.appendChild(opt(m.name,m.name+(m.group?" \u2014 "+m.group:"")))});
+  var known=memberBy(S.session.email);
+  if(known&&known.mentor)sel.value=known.mentor;
+  mw.appendChild(sel);fs.appendChild(mw);
+  var tw=el("div");tw.appendChild(labelFor(null,"Do you need transportation?",null));
+  var rad=el("div","radios inline");
+  ["Yes","No"].forEach(function(v,i){var l=el("label"),r=el("input");
+    r.type="radio";r.name="suTrans";r.value=v;if(i===1)r.checked=true;
+    l.appendChild(r);l.appendChild(document.createTextNode(v));rad.appendChild(l)});
+  tw.appendChild(rad);fs.appendChild(tw);f.appendChild(fs);
+  var fs2=el("div","fields one");fs2.style.marginTop="15px";
+  var adv=el("div");adv.appendChild(labelFor(null,"Are you advocating for another organization?",null));
+  var rad2=el("div","radios");
+  [["no","I am not advocating."],
+   ["yes","I am going to fill out the nomination form and sign up again if it is approved."]]
+  .forEach(function(p,i){var l=el("label"),r=el("input");r.type="radio";r.name="suAdv";
+    r.value=p[0];if(i===0)r.checked=true;l.appendChild(r);
+    l.appendChild(document.createTextNode(p[1]));rad2.appendChild(l)});
+  adv.appendChild(rad2);fs2.appendChild(adv);
+  fs2.appendChild(area("suNotes","Anything the coordinator should know?",
+    "Optional \u2014 allergies, arriving late, leaving early."));
+  f.appendChild(fs2);
+  var foot=el("div","formfoot");
+  var sub=el("button","btn","Claim my spot");sub.type="submit";foot.appendChild(sub);
+  var back=el("a","btn ghost","Cancel");back.href="#/member/opportunities";foot.appendChild(back);
+  foot.appendChild(el("span","note","Do not give up a spot within 48 hours of the event."));
+  f.appendChild(foot);
+  f.onsubmit=function(e){e.preventDefault();
+    if(!$("#suMentor").value){toast("Choose your mentor so your group gets credit.");return}
+    claimSlot(ev,{mentor:$("#suMentor").value,
+      transportation:(document.querySelector('input[name=suTrans]:checked')||{}).value||"No",
+      advocating:(document.querySelector('input[name=suAdv]:checked')||{}).value||"no",
+      notes:$("#suNotes").value},sub)};
+  sec.appendChild(f);a.appendChild(sec);
+}
+
+function viewLog(a){
+  pageHead(a,"Log Your Service","File this after you serve. It is the only thing that credits your hours, and every cohort impact number is built from it.");
+  var sec=el("section"),f=el("form","card"),fs=el("div","fields");
+  var ew=el("div","span2");ew.appendChild(labelFor("lgEvent","Event you served at",null));
+  var es=el("select");es.id="lgEvent";es.required=true;es.appendChild(opt("","Choose an event"));
+  var myKey=keyOf(S.session.email);
+  S.events.slice().sort(function(x,y){
+    var mx=claimsFor(x.id).some(function(s){return s.memberKey===myKey})?0:1;
+    var my=claimsFor(y.id).some(function(s){return s.memberKey===myKey})?0:1;
+    return mx-my||(x.date||"").localeCompare(y.date||"")}).forEach(function(ev){
+    var signed=claimsFor(ev.id).some(function(s){return s.memberKey===myKey});
+    es.appendChild(opt(ev.id,evName(ev)+(signed?"  \u2713 you signed up":"")))});
+  ew.appendChild(es);fs.appendChild(ew);
+  var hw=el("div");hw.appendChild(labelFor("lgHours","Hours served",null));
+  var hs=el("select");hs.id="lgHours";hs.required=true;hs.appendChild(opt("","Hours"));
+  for(var i=1;i<=8;i++)hs.appendChild(opt(i,String(i)));
+  hw.appendChild(hs);fs.appendChild(hw);
+  var qw=el("div");var ql=labelFor("lgQty","How many?","Report the group total if you worked as a group.");
+  qw.appendChild(ql);
+  var qi=el("input");qi.type="number";qi.id="lgQty";qi.min="0";qi.step="1";qi.required=true;
+  qw.appendChild(qi);fs.appendChild(qw);
+  fs.appendChild(field("Link to your proof photo","url","","lgProof",false,
+    "Drive or photos link. Keep it professional.",false,true));
+  fs.appendChild(area("lgTake","What did you take away?",
+    "Optional, but the best of these run in the year-end impact report."));
+  f.appendChild(fs);
+  var foot=el("div","formfoot");
+  var sb=el("button","btn","File service log");sb.type="submit";foot.appendChild(sb);
+  var hint=el("span","note");hint.id="lgHint";foot.appendChild(hint);f.appendChild(foot);
+  es.onchange=function(){var ev=eventById(es.value),org=orgOf(ev);
+    ql.textContent=org.impactMetric?("How many "+org.impactMetric.toLowerCase()+"?"):"How many?";
+    ql.appendChild(el("small",null,"Report the group total if you worked as a group."));
+    $("#lgHint").textContent=ev&&isSwab(ev)?
+      "At most "+cap()+" hour from the book drive counts toward your requirement.":""};
+  f.onsubmit=function(e){e.preventDefault();fileLog(sb)};
+  sec.appendChild(f);a.appendChild(sec);
+}
+
+function viewNominate(a){
+  pageHead(a,"Nominate an Organization","Already volunteering somewhere? Put it forward. An officer reviews it before it counts, and you still file a service log afterward.");
+  var sec=el("section"),f=el("form","card"),fs=el("div","fields");
+  fs.appendChild(field("Organization","text","","nmName",true));
+  fs.appendChild(field("Website","url","","nmSite",false,"Optional"));
+  fs.appendChild(field("Address","text","","nmAddr",true,null,false,true));
+  fs.appendChild(field("Date","date","","nmDate",true));
+  fs.appendChild(field("Time","time","","nmTime",true));
+  fs.appendChild(field("Volunteers needed","number","","nmVol",true));
+  fs.appendChild(field("Contact at the organization","text","","nmContact",true,
+    "Name plus email or phone"));
+  fs.appendChild(area("nmDesc","What would volunteers do?",null,true));
+  fs.appendChild(area("nmNotes","Anything a coordinator should know?","Optional"));
+  f.appendChild(fs);
+  var foot=el("div","formfoot");
+  var sb=el("button","btn","Submit nomination");sb.type="submit";foot.appendChild(sb);
+  foot.appendChild(el("span","note","You still owe a service log after you serve."));
+  f.appendChild(foot);
+  f.onsubmit=function(e){e.preventDefault();fileNom(sb)};
+  sec.appendChild(f);a.appendChild(sec);
+}
+
+function viewStanding(a){
+  var st=stats(S.session.email),R=req(),me=memberBy(S.session.email)||{};
+  pageHead(a,"My Standing",R+" hours are required this semester. At most "+cap()+" may come from the book drive.");
+  var sec=el("section"),figs=el("div","figs");
+  [["Hours logged",st.total,false],["Counting toward requirement",st.countable,false],
+   ["Still needed",Math.max(0,round(R-st.countable)),st.countable<R],
+   ["Upcoming spots claimed",st.claims,false]].forEach(function(p){
+    var d=el("div","fig"+(p[2]?" warn":""));
+    d.appendChild(el("b",null,String(p[1])));d.appendChild(el("span",null,p[0]));figs.appendChild(d)});
+  sec.appendChild(figs);
+  if(st.met)sec.appendChild(el("div","flag ok","You have met the requirement for the semester."));
+  else if(st.swab>cap())sec.appendChild(el("div","flag","You logged "+st.swab+
+    " book-drive hours but only "+cap()+" counts. Serve at another partner to make up the rest."));
+  var meta=el("p","note");meta.style.marginTop="12px";
+  meta.textContent=me.mentor?("Mentor: "+me.mentor+
+    (groupOf(me.mentor)?"  \u00b7  "+groupOf(me.mentor):"  \u00b7  group not named yet")):
+    "No mentor on file yet. Choose one the next time you claim a spot.";
+  sec.appendChild(meta);
+  a.appendChild(sec);
+  var up=el("section");up.appendChild(plate("Spots You Have Claimed"));
+  var myKey=keyOf(S.session.email);
+  var mine=S.signups.filter(function(s){return s.memberKey===myKey});
+  if(!mine.length)up.appendChild(el("p","empty","Nothing claimed yet. Open Opportunities to pick a slot."));
+  else{var t=table(["Event","Date","Time","Transportation"]);
+    mine.forEach(function(s){var ev=eventById(s.eventId);if(!ev)return;var tr=el("tr");
+      tr.appendChild(td(orgOf(ev).name||ev.orgId));tr.appendChild(td(fmtDate(ev.date)));
+      tr.appendChild(td(ev.startTime+" \u2013 "+ev.endTime));
+      tr.appendChild(td(s.transportation||"No"));t.body.appendChild(tr)});
+    up.appendChild(t.wrap)}
+  a.appendChild(up);
+  var lg=el("section");lg.appendChild(plate("Service You Have Logged"));
+  var myLogs=S.logs.filter(function(l){return l.memberKey===myKey});
+  if(!myLogs.length)lg.appendChild(el("p","empty","No hours logged yet."));
+  else{var t2=table(["Event","Hours","Impact Metric","Reported"],["","n","","n"]);
+    myLogs.forEach(function(l){var ev=eventById(l.eventId),tr=el("tr");
+      tr.appendChild(td(ev?evName(ev):l.eventId));
+      tr.appendChild(td(String(l.hours),"n"));tr.appendChild(td(l.metric||"\u2014"));
+      tr.appendChild(td(String(l.quantity==null?"":l.quantity),"n"));t2.body.appendChild(tr)});
+    lg.appendChild(t2.wrap)}
+  a.appendChild(lg);
+}
+
+function viewDashboard(a){
+  pageHead(a,"Cohort Dashboard",S.settings?S.settings.semester:"");
+  var sec=el("section");sec.appendChild(plate("Membership Standing"));
+  var met=0;
+  var pn=el("p","note");sec.appendChild(pn);
+  var g=el("div","muster");
+  S.roster.forEach(function(m){var st=stats(m.email);
+    var s=st.met?"met":(st.total>0?"part":(st.claims>0?"signed":"none"));
+    if(st.met)met++;
+    var c=el("div","mk");c.setAttribute("data-s",s);
+    c.title=m.name+" \u2014 "+st.countable+" of "+req()+" hours";g.appendChild(c)});
+  sec.appendChild(g);
+  var n=S.roster.length;
+  pn.textContent=n?met+" of "+n+" members eligible \u00b7 "+Math.round(met/n*100)+"% of roster":"No roster loaded";
+  var lg=el("div","legend");
+  [["met","Requirement met"],["part","Hours logged, short"],["sig","Signed up, nothing logged"],
+   ["","No activity"]].forEach(function(p){var s=el("span",p[0]||null);
+    s.appendChild(el("i"));s.appendChild(document.createTextNode(p[1]));lg.appendChild(s)});
+  sec.appendChild(lg);a.appendChild(sec);
+  var f=el("section");f.appendChild(plate("Program Totals"));
+  var hours=0;S.logs.forEach(function(l){hours+=+l.hours||0});
+  var served=S.roster.filter(function(m){return stats(m.email).total>0}).length;
+  var pend=S.noms.filter(function(x){return(x.status||"pending")==="pending"}).length;
+  var figs=el("div","figs");
+  [["Hours logged",round(hours)],["Service logs",S.logs.length],["Spots claimed",S.signups.length],
+   ["Members who served",served],["Meeting requirement",met],["Nominations waiting",pend]]
+  .forEach(function(p){var d=el("div","fig");d.appendChild(el("b",null,String(p[1])));
+    d.appendChild(el("span",null,p[0]));figs.appendChild(d)});
+  f.appendChild(figs);a.appendChild(f);
+  var ck=el("section");ck.appendChild(plate("Needs Attention"));
+  var issues=[],known={};
+  S.roster.forEach(function(m){known[keyOf(m.email)]=1});
+  var unk=S.logs.filter(function(l){return!known[l.memberKey]}).length;
+  if(unk)issues.push(unk+" service log(s) from an email that is not on the roster.");
+  var nm=S.roster.filter(function(m){return!m.mentor}).length;
+  if(nm)issues.push(nm+" of "+S.roster.length+" members have no mentor assigned, so group reporting is incomplete. Fix it under Groups.");
+  var ng=S.mentors.filter(function(m){return!m.group}).length;
+  if(ng)issues.push(ng+" of "+S.mentors.length+" mentors have no group name yet.");
+  S.events.forEach(function(ev){var s=evStats(ev);
+    if(s.cap&&s.logs>s.claimed)issues.push(evName(ev)+" has more logs ("+s.logs+") than claimed spots ("+s.claimed+").")});
+  var over=S.roster.filter(function(m){return stats(m.email).swab>cap()}).length;
+  if(over)issues.push(over+" member(s) logged more book-drive hours than the cap allows.");
+  Object.keys(S.orgs).forEach(function(k){var o=S.orgs[k];
+    if(o.active!==false&&o.givepulseCode==="TBD")issues.push(o.name+" still needs its GivePulse code.")});
+  if(!issues.length)ck.appendChild(el("div","flag ok","Nothing needs attention."));
+  issues.forEach(function(t){ck.appendChild(el("div","flag",t))});
+  a.appendChild(ck);
+}
+
+function viewMembers(a){
+  pageHead(a,"Members","Filter by mentor, group, partner or standing. Everything here is live.");
+  var sec=el("section"),bar=el("div","filters");
+  function mkSel(id,label,opts){
+    var w=el("div");w.appendChild(labelFor(id,label,null));
+    var s=el("select");s.id=id;opts.forEach(function(o){s.appendChild(opt(o[0],o[1]))});
+    s.value=S.filt[id]||"";
+    s.onchange=function(){S.filt[id]=s.value;render()};
+    w.appendChild(s);return w}
+  var groups=[];S.mentors.forEach(function(m){if(m.group&&groups.indexOf(m.group)<0)groups.push(m.group)});
+  bar.appendChild(mkSel("fMentor","Mentor",[["","All mentors"]].concat(
+    S.mentors.map(function(m){return[m.name,m.name]}))));
+  bar.appendChild(mkSel("fGroup","Group",[["","All groups"]].concat(
+    groups.map(function(g){return[g,g]}))));
+  bar.appendChild(mkSel("fPartner","Served with",[["","All partners"]].concat(
+    Object.keys(S.orgs).filter(function(k){return S.orgs[k].active!==false})
+      .map(function(k){return[k,S.orgs[k].name]}))));
+  bar.appendChild(mkSel("fStatus","Standing",[["","Everyone"],["met","Requirement met"],
+    ["short","Short of requirement"],["none","No activity"],["ghost","Claimed but never logged"]]));
+  var sw=el("div");sw.appendChild(labelFor("fSearch","Search",null));
+  var si=el("input");si.id="fSearch";si.type="search";si.placeholder="Name or email";
+  si.value=S.filt.fSearch||"";
+  si.oninput=function(){S.filt.fSearch=si.value;clearTimeout(si._t);
+    si._t=setTimeout(function(){render();var n=$("#fSearch");
+      if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length)}},280)};
+  sw.appendChild(si);bar.appendChild(sw);sec.appendChild(bar);
+  var rows=S.roster.map(function(m){
+    var st=stats(m.email),partners={};
+    S.logs.filter(function(l){return l.memberKey===keyOf(m.email)}).forEach(function(l){
+      var ev=eventById(l.eventId);if(ev)partners[ev.orgId]=1});
+    return{m:m,st:st,partners:partners,group:groupOf(m.mentor)}});
+  var q=keyOf(S.filt.fSearch||"");
+  rows=rows.filter(function(r){
+    if(S.filt.fMentor&&r.m.mentor!==S.filt.fMentor)return false;
+    if(S.filt.fGroup&&r.group!==S.filt.fGroup)return false;
+    if(S.filt.fPartner&&!r.partners[S.filt.fPartner])return false;
+    var f=S.filt.fStatus;
+    if(f==="met"&&!r.st.met)return false;
+    if(f==="short"&&(r.st.met||r.st.total===0))return false;
+    if(f==="none"&&(r.st.total>0||r.st.claims>0))return false;
+    if(f==="ghost"&&!(r.st.claims>0&&r.st.total===0))return false;
+    if(q&&(r.m.name+" "+r.m.email).toLowerCase().indexOf(q)<0)return false;
+    return true});
+  var K=S.sort.k,D=S.sort.d;
+  rows.sort(function(x,y){var a1,b1;
+    if(K==="name"){a1=x.m.name;b1=y.m.name}
+    else if(K==="mentor"){a1=x.m.mentor||"";b1=y.m.mentor||""}
+    else if(K==="group"){a1=x.group;b1=y.group}
+    else if(K==="met"){a1=x.st.met?1:0;b1=y.st.met?1:0}
+    else{a1=x.st[K];b1=y.st[K]}
+    if(typeof a1==="number")return(a1-b1)*D;
+    return String(a1).localeCompare(String(b1))*D});
+  var heads=[["name","Member"],["mentor","Mentor"],["group","Group"],["claims","Spots"],
+    ["logs","Logs"],["total","Hours"],["swab","Book Drive"],["countable","Counting"],["met","Met?"]];
+  sec.appendChild(plate("",rows.length+" of "+S.roster.length+" members"));
+  var t=table(heads.map(function(h){return h[1]}),["","","","n","n","n","n","n",""]);
+  heads.forEach(function(h,i){var th=t.head.children[i];th.className=(th.className+" sort").trim();
+    if(K===h[0])th.textContent=h[1]+(D>0?" \u2191":" \u2193");
+    th.onclick=function(){if(S.sort.k===h[0])S.sort.d=-D;else{S.sort.k=h[0];S.sort.d=1}render()}});
+  rows.forEach(function(r){var tr=el("tr");
+    tr.appendChild(td(r.m.name));tr.appendChild(td(r.m.mentor||"\u2014"));
+    tr.appendChild(td(r.group||"\u2014"));
+    tr.appendChild(td(String(r.st.claims),"n"));tr.appendChild(td(String(r.st.logs),"n"));
+    tr.appendChild(td(String(r.st.total),"n"));tr.appendChild(td(String(r.st.swab),"n"));
+    tr.appendChild(td(String(r.st.countable),"n"));
+    tr.appendChild(td(r.st.met?"Yes":"No",r.st.met?"yes":"no"));
+    t.body.appendChild(tr)});
+  sec.appendChild(t.wrap);
+  var exp=el("button","btn ghost sm","Export this view as CSV");exp.style.marginTop="14px";
+  exp.onclick=function(){exportCsv(rows)};sec.appendChild(exp);
+  a.appendChild(sec);
+}
+
+function viewGroups(a){
+  pageHead(a,"Mentor Groups","Name each group, then assign every member to a mentor. Group reporting turns on as soon as you do.");
+  var sec=el("section");sec.appendChild(plate("Groups"));
+  var t=table(["Mentor","Group Name","Members","Hours","Avg Per Member","Meeting Requirement"],
+    ["","","n","n","n","n"]);
+  S.mentors.forEach(function(m,i){
+    var mem=S.roster.filter(function(r){return r.mentor===m.name});
+    var hrs=0,met=0;
+    mem.forEach(function(r){var st=stats(r.email);hrs+=st.total;if(st.met)met++});
+    var tr=el("tr");tr.appendChild(td(m.name));
+    var gc=el("td"),gi=el("input");gi.value=m.group||"";gi.placeholder="e.g. Group 4";
+    gi.onchange=function(){saveMentorGroup(i,gi.value)};
+    gc.appendChild(gi);tr.appendChild(gc);
+    tr.appendChild(td(String(mem.length),"n"));
+    tr.appendChild(td(String(round(hrs)),"n"));
+    tr.appendChild(td(mem.length?String(round(hrs/mem.length)):"0","n"));
+    tr.appendChild(td(mem.length?met+" of "+mem.length:"\u2014","n"));
+    t.body.appendChild(tr)});
+  sec.appendChild(t.wrap);a.appendChild(sec);
+  var as=el("section");
+  var un=S.roster.filter(function(r){return!r.mentor}).length;
+  as.appendChild(plate("Assign Members",un?un+" still unassigned":"All assigned"));
+  var t2=table(["Member","UGA Email","Mentor"]);
+  S.roster.forEach(function(r,i){var tr=el("tr");
+    tr.appendChild(td(r.name));tr.appendChild(td(r.email));
+    var mc=el("td"),s=el("select");
+    s.appendChild(opt("","\u2014 unassigned \u2014"));
+    S.mentors.forEach(function(m){s.appendChild(opt(m.name,m.name))});
+    s.value=r.mentor||"";
+    s.onchange=function(){saveMemberMentor(i,s.value)};
+    mc.appendChild(s);tr.appendChild(mc);t2.body.appendChild(tr)});
+  as.appendChild(t2.wrap);a.appendChild(as);
+}
+
+function viewEvents(a){
+  pageHead(a,"Events","Claims, logs and impact per event. Capacity is enforced at claim time.");
+  var sec=el("section");
+  var t=table(["Partner","Time","Date","Claimed","Cap","Logs","Hours","Reported","Verified","Show Rate"],
+    ["","","","n","n","n","n","n","n","n"]);
+  var T={c:0,cap:0,l:0,h:0,r:0,v:0};
+  S.events.slice().sort(function(x,y){return(x.date||"").localeCompare(y.date||"")}).forEach(function(ev){
+    var s=evStats(ev),tr=el("tr");
+    tr.appendChild(td(orgOf(ev).name||ev.orgId));
+    tr.appendChild(td(ev.startTime+" \u2013 "+ev.endTime));
+    tr.appendChild(td(fmtDate(ev.date)));tr.appendChild(td(String(s.claimed),"n"));
+    tr.appendChild(td(s.cap?String(s.cap):"open","n"));tr.appendChild(td(String(s.logs),"n"));
+    tr.appendChild(td(String(s.hours),"n"));tr.appendChild(td(String(s.rep),"n"));
+    tr.appendChild(td(String(s.ver),"n"));
+    tr.appendChild(td(s.claimed?Math.round(s.logs/s.claimed*100)+"%":"\u2014","n"));
+    t.body.appendChild(tr);
+    T.c+=s.claimed;T.cap+=s.cap;T.l+=s.logs;T.h+=s.hours;T.r+=s.rep;T.v+=s.ver});
+  var tr=el("tr","tot");
+  tr.appendChild(td("Total"));tr.appendChild(td(""));tr.appendChild(td(""));
+  [T.c,T.cap,T.l,round(T.h),T.r,T.v].forEach(function(v){tr.appendChild(td(String(v),"n"))});
+  tr.appendChild(td(T.c?Math.round(T.l/T.c*100)+"%":"\u2014","n"));
+  t.body.appendChild(tr);sec.appendChild(t.wrap);
+  sec.appendChild(el("p","note","Reported adds up every member's answer, which double-counts a shared group total. Verified is the per-event average."));
+  a.appendChild(sec);
+  var p=el("section");p.appendChild(plate("Partners"));
+  var t2=table(["Partner","Impact Metric","Events","Logs","Hours","Verified Impact"],
+    ["","","n","n","n","n"]);
+  var by={};
+  S.events.forEach(function(ev){var s=evStats(ev);
+    if(!by[ev.orgId])by[ev.orgId]={n:0,l:0,h:0,v:0};
+    by[ev.orgId].n++;by[ev.orgId].l+=s.logs;by[ev.orgId].h+=s.hours;by[ev.orgId].v+=s.ver});
+  Object.keys(by).forEach(function(k){var o=S.orgs[k]||{},v=by[k],tr2=el("tr");
+    tr2.appendChild(td(o.name||k));tr2.appendChild(td(o.impactMetric||"\u2014"));
+    [v.n,v.l,round(v.h),v.v].forEach(function(x){tr2.appendChild(td(String(x),"n"))});
+    t2.body.appendChild(tr2)});
+  p.appendChild(t2.wrap);a.appendChild(p);
+  var r=el("section");r.appendChild(plate("Who Is Signed Up"));
+  var any=false;
+  S.events.slice().sort(function(x,y){return(x.date||"").localeCompare(y.date||"")}).forEach(function(ev){
+    var c=claimsFor(ev.id);if(!c.length)return;any=true;
+    var d=el("div");d.style.marginBottom="16px";
+    d.appendChild(el("h3",null,evName(ev)));
+    var t3=table(["Member","Mentor","Transportation","Notes"]);
+    c.forEach(function(s){var tr3=el("tr");tr3.appendChild(td(s.memberName));
+      tr3.appendChild(td(s.mentor||"\u2014"));tr3.appendChild(td(s.transportation||"No"));
+      tr3.appendChild(td(s.notes||"\u2014","wrapok"));t3.body.appendChild(tr3)});
+    d.appendChild(t3.wrap);r.appendChild(d)});
+  if(!any)r.appendChild(el("p","empty","No spots claimed yet."));
+  a.appendChild(r);
+}
+
+function viewNominations(a){
+  var pend=S.noms.filter(function(n){return(n.status||"pending")==="pending"});
+  pageHead(a,"Nominations",pend.length?pend.length+" waiting on review":"All reviewed");
+  var sec=el("section");
+  if(!S.noms.length){sec.appendChild(el("p","empty",
+    "Nothing nominated yet. Member submissions land here for review before they count."));
+    a.appendChild(sec);return}
+  S.noms.slice().sort(function(x,y){return(y.createdAt||"").localeCompare(x.createdAt||"")})
+   .forEach(function(n){
+    var d=el("div","nom"),h=el("div");
+    h.style.display="flex";h.style.gap="10px";h.style.alignItems="baseline";
+    h.appendChild(el("h3",null,n.orgName));
+    var st=n.status||"pending";
+    h.appendChild(el("span","tag"+(st==="approved"?" ok":st==="declined"?" no":""),st));
+    d.appendChild(h);
+    var dl=el("dl");
+    [["Submitted by",n.memberName],["When",fmtDate(n.date)+" at "+esc(n.time)],
+     ["Where",n.address],["Volunteers",n.volunteers?String(n.volunteers):""],
+     ["Contact",n.contact],["Website",n.website],["What they would do",n.description],
+     ["Notes",n.notes]].forEach(function(p){if(!p[1])return;
+      dl.appendChild(el("dt",null,p[0]));dl.appendChild(el("dd",null,p[1]))});
+    d.appendChild(dl);
+    if(st==="pending"){var ff=el("div","formfoot");
+      var ok=el("button","btn sm","Approve");ok.onclick=function(){setNom(n.id,"approved")};
+      var no=el("button","btn sm warn","Decline");no.onclick=function(){setNom(n.id,"declined")};
+      ff.appendChild(ok);ff.appendChild(no);d.appendChild(ff)}
+    sec.appendChild(d)});
+  a.appendChild(sec);
+}
+
+function viewSettings(a){
+  pageHead(a,"Settings","Requirement rules and who gets officer access.");
+  var sec=el("section"),f=el("form","card"),fs=el("div","fields");
+  fs.appendChild(field("Service hours required","number",String(req()),"stReq",true,"Per member, per semester"));
+  fs.appendChild(field("Book-drive hours that count","number",String(cap()),"stCap",true,"Ceiling on ADOS / SWAB hours"));
+  fs.appendChild(field("Semester","text",S.settings?S.settings.semester:"","stSem",true));
+  f.appendChild(fs);
+  var foot=el("div","formfoot");
+  var sb=el("button","btn","Save settings");sb.type="submit";foot.appendChild(sb);f.appendChild(foot);
+  f.onsubmit=function(e){e.preventDefault();saveSettings()};
+  sec.appendChild(f);a.appendChild(sec);
+  var o=el("section");o.appendChild(plate("Officer Access"));
+  if(!S.officers.length)o.appendChild(el("p","empty","No officers added yet."));
+  else{var t=table(["Name","UGA Email",""]);
+    S.officers.forEach(function(x,i){var tr=el("tr");
+      tr.appendChild(td(x.name||""));tr.appendChild(td(x.email));
+      var c=el("td"),b=el("button","btn sm warn","Remove");
+      b.onclick=function(){removeOfficer(i)};c.appendChild(b);tr.appendChild(c);
+      t.body.appendChild(tr)});
+    o.appendChild(t.wrap)}
+  var af=el("form","card");af.style.marginTop="14px";
+  var afs=el("div","fields");
+  afs.appendChild(field("Name","text","","ofName",true));
+  afs.appendChild(field("UGA Email","email","","ofEmail",true,
+    "They still need an invite code before they can sign in."));
+  af.appendChild(afs);
+  var aff=el("div","formfoot"),ab=el("button","btn","Add officer");ab.type="submit";
+  aff.appendChild(ab);af.appendChild(aff);
+  af.onsubmit=function(e){e.preventDefault();addOfficer($("#ofName").value,$("#ofEmail").value)};
+  o.appendChild(af);a.appendChild(o);
+
+  // ── accounts ──
+  var people=peopleList();
+  var active=people.filter(function(x){return acctState(x.email)==="Active"}).length;
+  var pending=people.filter(function(x){return acctState(x.email)==="Invited"}).length;
+  var none=people.length-active-pending;
+  var ac=el("section");
+  ac.appendChild(plate("Accounts",active+" active \u00b7 "+pending+" invited \u00b7 "+
+    none+" not invited"));
+  ac.appendChild(el("p","lede",
+    "Issue a code, send the welcome email, and each person sets their own password. Passwords are never emailed."));
+  var bar=el("div","formfoot");bar.style.marginTop="0";bar.style.marginBottom="16px";
+  var all=el("button","btn","Issue Codes For Everyone Without One");
+  all.onclick=function(){issueAllCodes(all)};bar.appendChild(all);
+  ac.appendChild(bar);
+
+  var t2=table(["Name","UGA Email","Role","Status","Invite Code",""]);
+  people.forEach(function(x){
+    var st=acctState(x.email),inv=S.invites[x.email],tr=el("tr");
+    tr.appendChild(td(x.name));tr.appendChild(td(x.email));tr.appendChild(td(x.kind));
+    tr.appendChild(td(st,st==="Active"?"yes":(st==="Not invited"?"no":null)));
+    var cc=el("td","acctcode");
+    cc.textContent=(inv&&!inv.usedAt)?inv.code:"\u2014";
+    tr.appendChild(cc);
+    var bc=el("td");
+    var b=el("button","btn sm ghost",st==="Active"?"Reset":(st==="Invited"?"New Code":"Issue Code"));
+    b.onclick=function(){st==="Active"?resetAccount(x.email):issueCode(x.email)};
+    bc.appendChild(b);tr.appendChild(bc);
+    t2.body.appendChild(tr)});
+  ac.appendChild(t2.wrap);
+  a.appendChild(ac);
+
+  // ── welcome email ──
+  var em=el("section");
+  em.appendChild(plate("Welcome Email","Paste into your mail merge"));
+  em.appendChild(el("p","lede",
+    "Send one per person. Their code is in the table above \u2014 merge it into the placeholder."));
+  var ta=el("textarea","tmpl");ta.readOnly=true;
+  ta.value=
+    "Subject: Set up your Atlas Service account\n\n"+
+    "Hi {{first name}},\n\n"+
+    "Service sign-ups have moved off Google Forms. Everything now lives at\n"+
+    "service.atlasuga.com \u2014 claim a spot, log your hours, and see exactly\n"+
+    "where you stand for the semester in one place.\n\n"+
+    "Set up your account:\n"+
+    "  1. Go to service.atlasuga.com\n"+
+    "  2. Click Set Up Your Account\n"+
+    "  3. Enter this email address and the code below\n"+
+    "  4. Choose a password only you know\n\n"+
+    "Your invite code: {{code}}\n\n"+
+    "The code works once. We will never email you a password, and no one on\n"+
+    "the executive board can see the one you choose.\n\n"+
+    "Remember: "+req()+" service hours this semester, and at most "+cap()+
+    " may come from the\nbook drive.\n\n"+
+    "\u2014 Atlas Service";
+  em.appendChild(ta);
+  a.appendChild(em);
+}
+
+function needDb(){if(!db){toast("Still connecting. Try again in a second.");return false}return true}
+
+async function claimSlot(ev,extra,btn){
+  if(!needDb())return;
+  var k=keyOf(S.session.email);
+  btn.disabled=true;btn.textContent="Claiming\u2026";
+  try{
+    var got=await db.doc("locks/"+ev.id).acquire({holder:k,ttlMs:6000});
+    if(!got.acquired){toast("Someone else is claiming a spot right now. Try again in a moment.");return}
+    var snap=await db.collection("signups").where("eventId","==",ev.id).get();
+    var taken=snap.docs.map(function(d){return d.data()});
+    if(taken.some(function(t){return t.memberKey===k})){
+      toast("You are already on this list.");go("/member/opportunities");return}
+    var c=+ev.capacity||0;
+    if(c&&taken.length>=c){toast("That was the last spot \u2014 this event just filled up.");
+      go("/member/opportunities");return}
+    await db.collection("signups").doc(ev.id+"__"+k).set({
+      eventId:ev.id,memberKey:k,memberName:S.session.name,email:S.session.email,
+      mentor:extra.mentor,transportation:extra.transportation,advocating:extra.advocating,
+      notes:extra.notes,createdAt:new Date().toISOString()});
+    var me=memberBy(S.session.email);
+    if(me&&!me.mentor)await saveMemberMentor(S.roster.indexOf(me),extra.mentor,true);
+    toast("Spot claimed. File a service log after you go.");
+    go("/member/opportunities");
+  }catch(e){toast(e&&e.code==="invalid_argument"?
+    "This view cannot claim spots. Ask an officer to give you access.":
+    "Could not claim that spot. Try again.")}
+  finally{btn.disabled=false;btn.textContent="Claim my spot"}
+}
+async function releaseSlot(ev){
+  if(!needDb())return;
+  if(!confirm("Give up your spot at "+evName(ev)+
+    "?\n\nDo not do this within 48 hours of the event \u2014 text Emma instead."))return;
+  try{await db.collection("signups").doc(ev.id+"__"+keyOf(S.session.email)).delete();
+    toast("Spot released.")}catch(e){toast("Could not release that spot.")}
+}
+async function fileLog(btn){
+  if(!needDb())return;
+  var id=$("#lgEvent").value;
+  if(!id){toast("Pick the event you served at.");return}
+  var ev=eventById(id),org=orgOf(ev);
+  btn.disabled=true;
+  try{
+    await db.collection("logs").add({eventId:id,memberKey:keyOf(S.session.email),
+      memberName:S.session.name,email:S.session.email,hours:+$("#lgHours").value||0,
+      metric:org.impactMetric||"",quantity:+$("#lgQty").value||0,proof:$("#lgProof").value,
+      takeaway:$("#lgTake").value,createdAt:new Date().toISOString()});
+    toast("Service log filed. Your hours are counted.");go("/member/standing");
+  }catch(e){toast("Could not file that log. Try again.")}finally{btn.disabled=false}
+}
+async function fileNom(btn){
+  if(!needDb())return;
+  btn.disabled=true;
+  try{
+    await db.collection("nominations").add({orgName:$("#nmName").value,website:$("#nmSite").value,
+      address:$("#nmAddr").value,date:$("#nmDate").value,time:$("#nmTime").value,
+      volunteers:+$("#nmVol").value||0,contact:$("#nmContact").value,
+      description:$("#nmDesc").value,notes:$("#nmNotes").value,
+      memberKey:keyOf(S.session.email),memberName:S.session.name,status:"pending",
+      createdAt:new Date().toISOString()});
+    toast("Nomination submitted. An officer reviews it before it counts.");
+    go("/member/opportunities");
+  }catch(e){toast("Could not submit that nomination. Try again.")}finally{btn.disabled=false}
+}
+async function setNom(id,status){
+  if(!needDb())return;
+  try{await db.collection("nominations").doc(id).update({status:status});
+    toast(status==="approved"?"Nomination approved.":"Nomination declined.")}
+  catch(e){toast("Could not update that nomination.")}
+}
+async function saveMentorGroup(i,val){
+  if(!needDb())return;
+  var list=S.mentors.map(function(m){return{name:m.name,group:m.group||""}});
+  list[i].group=val.trim();
+  try{await db.doc("roster/mentors").set({list:list});toast("Group saved.")}
+  catch(e){toast("Could not save that group.")}
+}
+async function saveMemberMentor(i,val,quiet){
+  if(!needDb()||i<0)return;
+  var list=S.roster.map(function(m){return{name:m.name,email:m.email,mentor:m.mentor||""}});
+  list[i].mentor=val;
+  try{await db.doc("roster/members").set({list:list});if(!quiet)toast("Mentor assigned.")}
+  catch(e){if(!quiet)toast("Could not save that assignment.")}
+}
+async function saveSettings(){
+  if(!needDb())return;
+  try{await db.doc("settings/config").set({hourRequirement:+$("#stReq").value||0,
+    swabCap:+$("#stCap").value||0,semester:$("#stSem").value});toast("Settings saved.")}
+  catch(e){toast("Could not save settings.")}
+}
+async function addOfficer(name,email){
+  if(!needDb())return;
+  var list=S.officers.slice();
+  if(list.some(function(x){return keyOf(x.email)===keyOf(email)})){toast("Already an officer.");return}
+  list.push({name:name.trim(),email:keyOf(email)});
+  try{await db.doc("roster/officers").set({list:list});toast("Officer added.")}
+  catch(e){toast("Could not add that officer.")}
+}
+function peopleList(){
+  var out=S.roster.map(function(m){return{name:m.name,email:keyOf(m.email),kind:"Member"}});
+  S.officers.forEach(function(o){
+    var k=keyOf(o.email),hit=out.filter(function(x){return x.email===k})[0];
+    if(hit)hit.kind="Officer";
+    else out.push({name:o.name||o.email,email:k,kind:"Officer"})});
+  return out;
+}
+function acctState(email){
+  var k=keyOf(email);
+  if(S.accounts[k])return "Active";
+  if(S.invites[k]&&!S.invites[k].usedAt)return "Invited";
+  return "Not invited";
+}
+async function issueCode(email){
+  if(!needDb())return;
+  var k=keyOf(email);
+  try{
+    await db.collection("invites").doc(k).set({
+      email:k,code:randCode(8),issuedAt:new Date().toISOString(),usedAt:null});
+    toast("Code issued for "+k+".");
+  }catch(e){toast("Could not issue that code.")}
+}
+async function issueAllCodes(btn){
+  if(!needDb())return;
+  var todo=peopleList().filter(function(x){return acctState(x.email)==="Not invited"});
+  if(!todo.length){toast("Everyone already has a code or an account.");return}
+  btn.disabled=true;btn.textContent="Issuing\u2026";
+  var n=0;
+  for(var i=0;i<todo.length;i++){
+    try{
+      await db.collection("invites").doc(todo[i].email).set({
+        email:todo[i].email,code:randCode(8),
+        issuedAt:new Date().toISOString(),usedAt:null});
+      n++;
+    }catch(e){}
+  }
+  btn.disabled=false;btn.textContent="Issue Codes For Everyone Without One";
+  toast(n+" code"+(n===1?"":"s")+" issued.");
+}
+async function resetAccount(email){
+  if(!needDb())return;
+  var k=keyOf(email);
+  if(!confirm("Reset the account for "+k+"?\n\nTheir password stops working and they set a new one with a fresh code."))return;
+  try{
+    await db.collection("accounts").doc(k).delete();
+    await db.collection("invites").doc(k).set({
+      email:k,code:randCode(8),issuedAt:new Date().toISOString(),usedAt:null});
+    toast("Account reset. A new code is ready to send.");
+  }catch(e){toast("Could not reset that account.")}
+}
+async function removeOfficer(i){
+  if(!needDb())return;
+  var list=S.officers.slice();list.splice(i,1);
+  try{await db.doc("roster/officers").set({list:list});toast("Officer removed.")}
+  catch(e){toast("Could not remove that officer.")}
+}
+async function exportCsv(rows){
+  var dl=await window.claude.use("downloads");
+  if(!dl){toast("Downloads are not available in this view.");return}
+  var out=[["Member","Email","Mentor","Group","Spots","Logs","Hours","BookDrive","Counting","Met"]];
+  rows.forEach(function(r){out.push([r.m.name,r.m.email,r.m.mentor||"",r.group||"",
+    r.st.claims,r.st.logs,r.st.total,r.st.swab,r.st.countable,r.st.met?"Yes":"No"])});
+  var csv=out.map(function(r){return r.map(function(c){var v=esc(c);
+    return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}).join(",")}).join("\n");
+  try{await dl.save({filename:"atlas-members.csv",data:csv})}catch(e){toast("Export cancelled.")}
+}
+
+function render(){
+  renderChrome();
+  var a=$("#app");a.textContent="";
+  var h=S.route,s=S.session;
+  if(h==="/setup"&&!s){viewSetup(a);return}
+  if(!s){viewGate(a);return}
+  if(h.indexOf("/member/signup/")===0){viewSignup(a,h.slice("/member/signup/".length));return}
+  switch(h){
+    case"/member/opportunities":viewOpportunities(a);break;
+    case"/member/log":viewLog(a);break;
+    case"/member/nominate":viewNominate(a);break;
+    case"/member/standing":viewStanding(a);break;
+    case"/admin":viewDashboard(a);break;
+    case"/admin/members":viewMembers(a);break;
+    case"/admin/groups":viewGroups(a);break;
+    case"/admin/events":viewEvents(a);break;
+    case"/admin/nominations":viewNominations(a);break;
+    case"/admin/settings":viewSettings(a);break;
+    default: if(s.role==="admin")viewDashboard(a);else viewOpportunities(a);
+  }
+}
+
+(function(){var raw=store("atlas.session");
+  if(raw){try{S.session=JSON.parse(raw)}catch(e){}}
+  S.route=(location.hash||"").replace(/^#/,"")||"/";render()})();
+
+(async function(){
+  userCap=await window.claude.use("user");
+  if(userCap){try{ownerish=(await userCap.isOwner())||(await userCap.canEdit())}catch(e){}}
+  db=await window.claude.use("db");
+  if(!db){toast("Running without a connection \u2014 nothing will save.");render();return}
+  var doc=function(p,fn){db.doc(p).onSnapshot(function(s){fn(s.exists?s.data():null);route()},function(){})};
+  var coll=function(p,fn){db.collection(p).onSnapshot(function(s){
+    fn(s.docs.map(function(d){var o=Object.assign({},d.data());o.id=d.id;return o}));route()},function(){})};
+  doc("settings/config",function(d){S.settings=d});
+  doc("roster/members",function(d){S.roster=d&&Array.isArray(d.list)?d.list:[]});
+  doc("roster/mentors",function(d){S.mentors=d&&Array.isArray(d.list)?d.list:[]});
+  doc("roster/officers",function(d){S.officers=d&&Array.isArray(d.list)?d.list:[]});
+  db.collection("orgs").onSnapshot(function(s){var m={};
+    s.docs.forEach(function(d){m[d.id]=Object.assign({id:d.id},d.data())});S.orgs=m;route()},function(){});
+  coll("events",function(v){S.events=v});
+  coll("signups",function(v){S.signups=v});
+  coll("logs",function(v){S.logs=v});
+  coll("nominations",function(v){S.noms=v});
+  db.collection("accounts").onSnapshot(function(sn){var m={};
+    sn.docs.forEach(function(d){m[d.id]=d.data()});S.accounts=m;route()},function(){});
+  db.collection("invites").onSnapshot(function(sn){var m={};
+    sn.docs.forEach(function(d){m[d.id]=d.data()});S.invites=m;route()},function(){});
+})();
+})();
+</script>
+</body>
+</html>
