@@ -13,6 +13,7 @@ const ADMIN_NAV = [
   ['/admin/events', 'Events'],
   ['/admin/contacts', 'Contacts'],
   ['/admin/nominations', 'Nominations'],
+  ['/admin/files', 'Files'],
 ]
 
 async function loadReferenceData() {

@@ -1,11 +1,7 @@
-import { Fragment, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useAdminData } from '../../context/AdminDataContext.js'
 import RoleTag from '../../components/RoleTag.jsx'
-import { useToast } from '../../context/ToastContext.jsx'
-import { supabase } from '../../lib/supabaseClient.js'
 import { downloadCsv } from '../../lib/csv.js'
-import { fmtDate } from '../../lib/format.js'
-import { signedProofUrl } from '../../lib/proofUpload.js'
 import { computeMemberStats, groupOf, keyOf, mentorName } from '../../lib/stats.js'
 
 const HEADS = [
@@ -23,7 +19,6 @@ const HEADS = [
 
 export default function Members() {
   const { roster, mentors, orgs, events, signups, logs, settings, officerEmail } = useAdminData()
-  const toast = useToast()
   const [filters, setFilters] = useState({
     mentor: '',
     group: '',
@@ -33,20 +28,8 @@ export default function Members() {
     search: '',
   })
   const [sort, setSort] = useState({ key: 'name', dir: 1 })
-  const [expandedEmail, setExpandedEmail] = useState(null)
-  const [openingId, setOpeningId] = useState(null)
 
   const eventsById = useMemo(() => new Map(events.map((e) => [e.id, e])), [events])
-  const orgsById = useMemo(() => new Map(orgs.map((o) => [o.id, o])), [orgs])
-  const logsByEmail = useMemo(() => {
-    const map = new Map()
-    logs.forEach((l) => {
-      const k = keyOf(l.member_email)
-      if (!map.has(k)) map.set(k, [])
-      map.get(k).push(l)
-    })
-    return map
-  }, [logs])
   const groups = useMemo(() => {
     const set = new Set()
     mentors.forEach((m) => m.group_name && set.add(m.group_name))
@@ -57,18 +40,6 @@ export default function Members() {
   // them from the "members" total the same way the Dashboard already does
   // — otherwise the header reads "65 of 67 members" once admins exist.
   const memberCount = useMemo(() => roster.filter((r) => !r.is_officer).length, [roster])
-
-  async function viewProof(logId, path) {
-    setOpeningId(logId)
-    try {
-      const url = await signedProofUrl(supabase, path)
-      window.open(url, '_blank', 'noopener,noreferrer')
-    } catch {
-      toast('Could not open that file.')
-    } finally {
-      setOpeningId(null)
-    }
-  }
 
   const rows = useMemo(() => {
     return roster.map((m) => {
@@ -262,91 +233,25 @@ export default function Members() {
               </tr>
             </thead>
             <tbody>
-              {sorted.map((r) => {
-                const email = r.member.email
-                const expanded = keyOf(expandedEmail) === keyOf(email)
-                const memberLogs = logsByEmail.get(keyOf(email)) || []
-                return (
-                  <Fragment key={email}>
-                    <tr>
-                      <td>
-                        {r.member.full_name}
-                        {keyOf(email) === keyOf(officerEmail) && <span className="note"> (you)</span>}
-                      </td>
-                      <td>
-                        <RoleTag role={r.role} />
-                      </td>
-                      <td>{r.mentor || '—'}</td>
-                      <td>{r.group || '—'}</td>
-                      <td className="n">{r.stats.claims}</td>
-                      <td className="n">
-                        {r.stats.logsCount > 0 ? (
-                          <button
-                            className="btn ghost sm"
-                            onClick={() => setExpandedEmail(expanded ? null : email)}
-                          >
-                            {r.stats.logsCount}
-                          </button>
-                        ) : (
-                          r.stats.logsCount
-                        )}
-                      </td>
-                      <td className="n">{r.stats.total}</td>
-                      <td className="n">{r.stats.swab}</td>
-                      <td className="n">{r.stats.countable}</td>
-                      <td className={r.stats.met ? 'yes' : 'no'}>{r.stats.met ? 'Yes' : 'No'}</td>
-                    </tr>
-                    {expanded && (
-                      <tr key={`${email}-logs`}>
-                        <td colSpan={HEADS.length} style={{ background: 'var(--raise)' }}>
-                          <div className="scroll">
-                            <table>
-                              <thead>
-                                <tr>
-                                  <th>Event</th>
-                                  <th className="n">Hours</th>
-                                  <th>Impact Metric</th>
-                                  <th className="n">Reported</th>
-                                  <th className="wrapok">Takeaway</th>
-                                  <th>Proof</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {memberLogs.map((l) => {
-                                  const ev = eventsById.get(l.event_id)
-                                  const org = ev ? orgsById.get(ev.org_id) : null
-                                  return (
-                                    <tr key={l.id}>
-                                      <td>{ev ? `${org?.name || ev.org_id} — ${fmtDate(ev.event_date)}` : l.event_id}</td>
-                                      <td className="n">{String(l.hours)}</td>
-                                      <td>{org?.impact_metric || '—'}</td>
-                                      <td className="n">{l.quantity == null ? '' : String(l.quantity)}</td>
-                                      <td className="wrapok">{l.takeaway || '—'}</td>
-                                      <td>
-                                        {l.proof_path ? (
-                                          <button
-                                            className="btn ghost sm"
-                                            disabled={openingId === l.id}
-                                            onClick={() => viewProof(l.id, l.proof_path)}
-                                          >
-                                            View
-                                          </button>
-                                        ) : (
-                                          '—'
-                                        )}
-                                      </td>
-                                    </tr>
-                                  )
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </Fragment>
-                )
-              })}
+              {sorted.map((r) => (
+                <tr key={r.member.email}>
+                  <td>
+                    {r.member.full_name}
+                    {keyOf(r.member.email) === keyOf(officerEmail) && <span className="note"> (you)</span>}
+                  </td>
+                  <td>
+                    <RoleTag role={r.role} />
+                  </td>
+                  <td>{r.mentor || '—'}</td>
+                  <td>{r.group || '—'}</td>
+                  <td className="n">{r.stats.claims}</td>
+                  <td className="n">{r.stats.logsCount}</td>
+                  <td className="n">{r.stats.total}</td>
+                  <td className="n">{r.stats.swab}</td>
+                  <td className="n">{r.stats.countable}</td>
+                  <td className={r.stats.met ? 'yes' : 'no'}>{r.stats.met ? 'Yes' : 'No'}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

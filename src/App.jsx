@@ -8,6 +8,7 @@ import Groups from './pages/admin/Groups.jsx'
 import Events from './pages/admin/Events.jsx'
 import Contacts from './pages/admin/Contacts.jsx'
 import Nominations from './pages/admin/Nominations.jsx'
+import Files from './pages/admin/Files.jsx'
 import Settings from './pages/admin/Settings.jsx'
 import MemberLayout from './components/MemberLayout.jsx'
 import Opportunities from './pages/member/Opportunities.jsx'
@@ -28,6 +29,7 @@ export default function App() {
         <Route path="events" element={<Events />} />
         <Route path="contacts" element={<Contacts />} />
         <Route path="nominations" element={<Nominations />} />
+        <Route path="files" element={<Files />} />
         <Route path="settings" element={<Settings />} />
       </Route>
       <Route path="/member" element={<MemberLayout />}>
