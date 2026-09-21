@@ -169,7 +169,7 @@ export default function Settings() {
       </div>
 
       <section>
-        <form className="card" onSubmit={saveSettings}>
+        <form className="card" style={{ maxWidth: 'none' }} onSubmit={saveSettings}>
           <div className="fields">
             <div>
               <label htmlFor="stReq">
