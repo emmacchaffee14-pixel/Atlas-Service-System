@@ -41,6 +41,7 @@ export default function Settings() {
 
   const officers = roster.filter((r) => r.is_officer)
   const admins = roster.filter((r) => r.is_admin)
+  const statusByEmail = new Map(accountStatus.map((x) => [x.email, x.status]))
 
   async function saveSettings(e) {
     e.preventDefault()
@@ -143,11 +144,7 @@ export default function Settings() {
     setNewOfficerEmail('')
     setMakeAdmin(false)
     await refresh()
-    toast(
-      makeAdmin
-        ? 'Officer and admin access granted. Invite them from Accounts below.'
-        : 'Officer access granted. Invite them from Accounts below.',
-    )
+    toast(makeAdmin ? 'Officer and admin access granted.' : 'Officer access granted.')
   }
 
   async function handleAccountAction(row) {
@@ -281,28 +278,42 @@ export default function Settings() {
                 <tr>
                   <th>Name</th>
                   <th>UGA Email</th>
+                  <th>Status</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
-                {officers.map((o) => (
-                  <tr key={o.email}>
-                    <td>
-                      {o.full_name}
-                      {o.email === officerEmail && <span className="note"> (you)</span>}
-                    </td>
-                    <td>{o.email}</td>
-                    <td>
-                      <button
-                        className="btn sm warn"
-                        disabled={roleBusy === o.email}
-                        onClick={() => demoteOfficer(o.email)}
-                      >
-                        Remove
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {officers.map((o) => {
+                  const status = statusByEmail.get(o.email) || 'Not invited'
+                  return (
+                    <tr key={o.email}>
+                      <td>
+                        {o.full_name}
+                        {o.email === officerEmail && <span className="note"> (you)</span>}
+                      </td>
+                      <td>{o.email}</td>
+                      <td className={status === 'Active' ? 'yes' : status === 'Not invited' ? 'no' : undefined}>
+                        {status}
+                      </td>
+                      <td style={{ display: 'flex', gap: 8 }}>
+                        <button
+                          className="btn sm ghost"
+                          disabled={accountBusy === o.email}
+                          onClick={() => handleAccountAction({ email: o.email, status })}
+                        >
+                          {actionLabel(status)}
+                        </button>
+                        <button
+                          className="btn sm warn"
+                          disabled={roleBusy === o.email}
+                          onClick={() => demoteOfficer(o.email)}
+                        >
+                          Remove
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -365,28 +376,42 @@ export default function Settings() {
                 <tr>
                   <th>Name</th>
                   <th>UGA Email</th>
+                  <th>Status</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
-                {admins.map((o) => (
-                  <tr key={o.email}>
-                    <td>
-                      {o.full_name}
-                      {o.email === officerEmail && <span className="note"> (you)</span>}
-                    </td>
-                    <td>{o.email}</td>
-                    <td>
-                      <button
-                        className="btn sm warn"
-                        disabled={roleBusy === o.email}
-                        onClick={() => demoteAdmin(o.email)}
-                      >
-                        Remove
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {admins.map((o) => {
+                  const status = statusByEmail.get(o.email) || 'Not invited'
+                  return (
+                    <tr key={o.email}>
+                      <td>
+                        {o.full_name}
+                        {o.email === officerEmail && <span className="note"> (you)</span>}
+                      </td>
+                      <td>{o.email}</td>
+                      <td className={status === 'Active' ? 'yes' : status === 'Not invited' ? 'no' : undefined}>
+                        {status}
+                      </td>
+                      <td style={{ display: 'flex', gap: 8 }}>
+                        <button
+                          className="btn sm ghost"
+                          disabled={accountBusy === o.email}
+                          onClick={() => handleAccountAction({ email: o.email, status })}
+                        >
+                          {actionLabel(status)}
+                        </button>
+                        <button
+                          className="btn sm warn"
+                          disabled={roleBusy === o.email}
+                          onClick={() => demoteAdmin(o.email)}
+                        >
+                          Remove
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
