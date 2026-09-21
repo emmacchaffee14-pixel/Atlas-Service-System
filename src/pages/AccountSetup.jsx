@@ -102,9 +102,6 @@ export default function AccountSetup() {
                 <button className="btn" type="submit" disabled={busy}>
                   Create Account
                 </button>
-                <Link className="btn ghost" to="/">
-                  Back to Log In
-                </Link>
               </div>
             </form>
             <p className="termnote">
