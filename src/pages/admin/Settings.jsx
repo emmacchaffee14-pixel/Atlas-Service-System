@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAdminData } from '../../context/AdminDataContext.js'
-import RoleTag from '../../components/RoleTag.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { supabase } from '../../lib/supabaseClient.js'
 import { inviteMember } from '../../lib/inviteMember.js'
@@ -13,12 +12,6 @@ function actionLabel(status) {
   return 'Invite'
 }
 
-function roleLabel(row) {
-  if (row.is_admin) return 'Admin'
-  if (row.is_officer) return 'Officer'
-  return 'Member'
-}
-
 export default function Settings() {
   const { settings, roster, accountStatus, refresh, officerEmail, isAdmin } = useAdminData()
   const toast = useToast()
@@ -28,10 +21,9 @@ export default function Settings() {
   const [semesterValue, setSemesterValue] = useState(settings?.semester || '')
   const [webhookValue, setWebhookValue] = useState(settings?.calendar_webhook_url || '')
   const [roleBusy, setRoleBusy] = useState(null)
-  const [newOfficerName, setNewOfficerName] = useState('')
-  const [newOfficerEmail, setNewOfficerEmail] = useState('')
-  const [makeAdmin, setMakeAdmin] = useState(false)
-  const [addingOfficer, setAddingOfficer] = useState(false)
+  const [newAdminName, setNewAdminName] = useState('')
+  const [newAdminEmail, setNewAdminEmail] = useState('')
+  const [addingAdmin, setAddingAdmin] = useState(false)
   const [accountBusy, setAccountBusy] = useState(null)
   const [bulkBusy, setBulkBusy] = useState(false)
 
@@ -39,8 +31,12 @@ export default function Settings() {
     return <Navigate to="/admin" replace />
   }
 
-  const officers = roster.filter((r) => r.is_officer)
+  // "Officer" is a real-world title (mentor/group leader) with no portal
+  // meaning — admin is the only access tier. is_officer still gets set
+  // alongside is_admin under the hood (the schema requires it), but
+  // nothing in this UI manages it separately or shows it.
   const admins = roster.filter((r) => r.is_admin)
+  const memberAccountStatus = accountStatus.filter((x) => !x.is_admin)
   const statusByEmail = new Map(accountStatus.map((x) => [x.email, x.status]))
 
   async function saveSettings(e) {
@@ -64,13 +60,13 @@ export default function Settings() {
     toast('Settings Saved.')
   }
 
-  async function demoteOfficer(email) {
-    if (officers.length <= 1) {
-      toast('At least one officer is required. Promote someone else first.')
+  async function demoteAdmin(email) {
+    if (admins.length <= 1) {
+      toast('At least one admin is required. Add someone else first.')
       return
     }
     if (email === officerEmail) {
-      const sure = window.confirm('Remove your own officer access? You will lose access to this page.')
+      const sure = window.confirm('Remove your own admin access? You will lose access to this page.')
       if (!sure) return
     }
     setRoleBusy(email)
@@ -80,26 +76,6 @@ export default function Settings() {
       .eq('email', email)
     setRoleBusy(null)
     if (error) {
-      toast('Could not remove that officer.')
-      return
-    }
-    await refresh()
-    toast('Officer removed.')
-  }
-
-  async function demoteAdmin(email) {
-    if (admins.length <= 1) {
-      toast('At least one admin is required. Promote someone else first.')
-      return
-    }
-    if (email === officerEmail) {
-      const sure = window.confirm('Remove your own admin access? You will lose access to this page.')
-      if (!sure) return
-    }
-    setRoleBusy(email)
-    const { error } = await supabase.from('roster').update({ is_admin: false }).eq('email', email)
-    setRoleBusy(null)
-    if (error) {
       toast('Could not remove that admin.')
       return
     }
@@ -107,44 +83,36 @@ export default function Settings() {
     toast('Admin removed.')
   }
 
-  // The only path to officer/admin access now — works whether the person
-  // is already on the roster (like an existing member) or not (like a
-  // mentor who's never had a login). The roster insert, if needed, always
-  // leaves is_officer/is_admin false; the update right after is what
-  // actually grants access, so it goes through guard_role_changes() like
-  // every other role change here, rather than around it.
-  //
-  // is_admin only ever gets OR'd in, never overwritten false, so re-using
-  // this form to re-invite or rename an existing admin can't silently
-  // strip their access just because the checkbox was left unticked —
-  // that's what the explicit Remove buttons above are for.
-  async function addOfficer(e) {
+  // The only path to admin access — works whether the person is already
+  // on the roster (an existing member) or not (a mentor who's never had a
+  // login). The roster insert, if needed, leaves roles false; the update
+  // right after is what actually grants access, so it goes through
+  // guard_role_changes() like every other role change here.
+  async function addAdmin(e) {
     e.preventDefault()
-    if (!newOfficerName.trim() || !newOfficerEmail.trim()) return
-    const email = newOfficerEmail.trim().toLowerCase()
-    const fullName = newOfficerName.trim()
-    const alreadyAdmin = roster.some((r) => r.email.toLowerCase() === email && r.is_admin)
-    setAddingOfficer(true)
+    if (!newAdminName.trim() || !newAdminEmail.trim()) return
+    const email = newAdminEmail.trim().toLowerCase()
+    const fullName = newAdminName.trim()
+    setAddingAdmin(true)
     const { error: insertError } = await supabase.from('roster').insert({ email, full_name: fullName })
     if (insertError && insertError.code !== '23505') {
-      setAddingOfficer(false)
+      setAddingAdmin(false)
       toast('Could not add that person.')
       return
     }
     const { error } = await supabase
       .from('roster')
-      .update({ full_name: fullName, is_officer: true, is_admin: makeAdmin || alreadyAdmin })
+      .update({ full_name: fullName, is_officer: true, is_admin: true })
       .eq('email', email)
-    setAddingOfficer(false)
+    setAddingAdmin(false)
     if (error) {
-      toast('Could not grant officer access.')
+      toast('Could not grant admin access.')
       return
     }
-    setNewOfficerName('')
-    setNewOfficerEmail('')
-    setMakeAdmin(false)
+    setNewAdminName('')
+    setNewAdminEmail('')
     await refresh()
-    toast(makeAdmin ? 'Officer and admin access granted.' : 'Officer access granted.')
+    toast('Admin access granted.')
   }
 
   async function handleAccountAction(row) {
@@ -169,7 +137,7 @@ export default function Settings() {
   }
 
   async function inviteAllWithoutAccount() {
-    const todo = accountStatus.filter((x) => x.status === 'Not invited')
+    const todo = memberAccountStatus.filter((x) => x.status === 'Not invited')
     if (!todo.length) {
       toast('Everyone already has an invite or an account.')
       return
@@ -189,15 +157,15 @@ export default function Settings() {
     toast(`${n} invite${n === 1 ? '' : 's'} sent.`)
   }
 
-  const activeCount = accountStatus.filter((x) => x.status === 'Active').length
-  const invitedCount = accountStatus.filter((x) => x.status === 'Invited').length
-  const notInvitedCount = accountStatus.length - activeCount - invitedCount
+  const activeCount = memberAccountStatus.filter((x) => x.status === 'Active').length
+  const invitedCount = memberAccountStatus.filter((x) => x.status === 'Invited').length
+  const notInvitedCount = memberAccountStatus.length - activeCount - invitedCount
 
   return (
     <>
       <div className="pagehead">
         <h1>Settings</h1>
-        <p>Requirement rules and who gets officer and admin access.</p>
+        <p>Requirement rules and who gets admin access.</p>
       </div>
 
       <section>
@@ -267,105 +235,8 @@ export default function Settings() {
 
       <section>
         <div className="plate">
-          <h2>Officer Access</h2>
-        </div>
-        {officers.length === 0 ? (
-          <p className="empty">No officers added yet.</p>
-        ) : (
-          <div className="scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>UGA Email</th>
-                  <th>Status</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {officers.map((o) => {
-                  const status = statusByEmail.get(o.email) || 'Not invited'
-                  return (
-                    <tr key={o.email}>
-                      <td>
-                        {o.full_name}
-                        {o.email === officerEmail && <span className="note"> (you)</span>}
-                      </td>
-                      <td>{o.email}</td>
-                      <td className={status === 'Active' ? 'yes' : status === 'Not invited' ? 'no' : undefined}>
-                        {status}
-                      </td>
-                      <td style={{ display: 'flex', gap: 8 }}>
-                        <button
-                          className="btn sm ghost"
-                          disabled={accountBusy === o.email}
-                          onClick={() => handleAccountAction({ email: o.email, status })}
-                        >
-                          {actionLabel(status)}
-                        </button>
-                        <button
-                          className="btn sm warn"
-                          disabled={roleBusy === o.email}
-                          onClick={() => demoteOfficer(o.email)}
-                        >
-                          Remove
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        <form className="card" style={{ marginTop: 14, maxWidth: 'none' }} onSubmit={addOfficer}>
-          <div className="fields">
-            <div>
-              <label htmlFor="ofName">
-                Add an Officer
-                <small>Works even if they're not on the roster yet — a mentor, say.</small>
-              </label>
-              <input
-                id="ofName"
-                type="text"
-                required
-                placeholder="Full name"
-                value={newOfficerName}
-                onChange={(e) => setNewOfficerName(e.target.value)}
-              />
-            </div>
-            <div>
-              <label htmlFor="ofEmail">UGA Email</label>
-              <input
-                id="ofEmail"
-                type="email"
-                required
-                placeholder="name@uga.edu"
-                value={newOfficerEmail}
-                onChange={(e) => setNewOfficerEmail(e.target.value)}
-              />
-            </div>
-          </div>
-          <div className="formfoot">
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <input type="checkbox" checked={makeAdmin} onChange={(e) => setMakeAdmin(e.target.checked)} />
-              Also make them an admin
-            </label>
-            <button className="btn" type="submit" disabled={addingOfficer}>
-              Add Officer
-            </button>
-          </div>
-        </form>
-      </section>
-
-      <section>
-        <div className="plate">
           <h2>Admin Access</h2>
-          <span>
-            Admins reach Settings; everyone else on the officer roster does not. Grant it from the
-            Add an Officer form above.
-          </span>
+          <span>Admins see everything and reach Settings. There is no tier below it.</span>
         </div>
         {admins.length === 0 ? (
           <p className="empty">No admins yet.</p>
@@ -416,6 +287,41 @@ export default function Settings() {
             </table>
           </div>
         )}
+
+        <form className="card" style={{ marginTop: 14, maxWidth: 'none' }} onSubmit={addAdmin}>
+          <div className="fields">
+            <div>
+              <label htmlFor="adName">
+                Add an Admin
+                <small>Works even if they're not on the roster yet — a mentor, say.</small>
+              </label>
+              <input
+                id="adName"
+                type="text"
+                required
+                placeholder="Full name"
+                value={newAdminName}
+                onChange={(e) => setNewAdminName(e.target.value)}
+              />
+            </div>
+            <div>
+              <label htmlFor="adEmail">UGA Email</label>
+              <input
+                id="adEmail"
+                type="email"
+                required
+                placeholder="name@uga.edu"
+                value={newAdminEmail}
+                onChange={(e) => setNewAdminEmail(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="formfoot">
+            <button className="btn" type="submit" disabled={addingAdmin}>
+              Add Admin
+            </button>
+          </div>
+        </form>
       </section>
 
       <section>
@@ -426,8 +332,9 @@ export default function Settings() {
           </span>
         </div>
         <p className="lede">
-          Invite sends a one-time link by email. Members choose their own password &mdash; nobody
-          on the executive board can see it.
+          The member roster &mdash; admins are managed above, not listed here. Invite sends a
+          one-time link by email. Members choose their own password &mdash; nobody on the
+          executive board can see it.
         </p>
         <div className="formfoot" style={{ marginTop: 0, marginBottom: 16 }}>
           <button className="btn" disabled={bulkBusy} onClick={inviteAllWithoutAccount}>
@@ -440,22 +347,15 @@ export default function Settings() {
               <tr>
                 <th>Name</th>
                 <th>UGA Email</th>
-                <th>Role</th>
                 <th>Status</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {accountStatus.map((x) => (
+              {memberAccountStatus.map((x) => (
                 <tr key={x.email}>
-                  <td>
-                    {x.full_name}
-                    {x.email === officerEmail && <span className="note"> (you)</span>}
-                  </td>
+                  <td>{x.full_name}</td>
                   <td>{x.email}</td>
-                  <td>
-                    <RoleTag role={roleLabel(x)} />
-                  </td>
                   <td className={x.status === 'Active' ? 'yes' : x.status === 'Not invited' ? 'no' : undefined}>
                     {x.status}
                   </td>
