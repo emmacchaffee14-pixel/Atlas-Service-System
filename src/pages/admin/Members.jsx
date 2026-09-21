@@ -53,6 +53,10 @@ export default function Members() {
     return [...set]
   }, [mentors])
   const activeOrgs = useMemo(() => orgs.filter((o) => o.active !== false), [orgs])
+  // Admins carry is_officer too (the schema requires it), so this excludes
+  // them from the "members" total the same way the Dashboard already does
+  // — otherwise the header reads "65 of 67 members" once admins exist.
+  const memberCount = useMemo(() => roster.filter((r) => !r.is_officer).length, [roster])
 
   async function viewProof(logId, path) {
     setOpeningId(logId)
@@ -238,7 +242,7 @@ export default function Members() {
         <div className="plate">
           <h2></h2>
           <span>
-            {sorted.length} of {roster.length} members
+            {sorted.length} of {memberCount} members
           </span>
         </div>
         <div className="scroll">
