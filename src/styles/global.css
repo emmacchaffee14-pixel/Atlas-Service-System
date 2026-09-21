@@ -1161,6 +1161,17 @@ form.card {
   appearance: radio;
 }
 
+/* Same problem as radios above: the generic input rule (100% wide, fixed
+   44px tall, appearance: none) swallows checkboxes too, leaving a giant
+   blank box instead of a checkmark. */
+input[type='checkbox'] {
+  width: auto;
+  height: auto;
+  flex: 0 0 auto;
+  -webkit-appearance: checkbox;
+  appearance: checkbox;
+}
+
 @media (max-width: 620px) {
   .entry {
     grid-template-columns: 1fr;
