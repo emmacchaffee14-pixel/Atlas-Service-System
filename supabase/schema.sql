@@ -10,8 +10,27 @@ create table if not exists settings (
   hour_requirement numeric not null default 3,
   swab_cap         numeric not null default 1,   -- max ADOS hours that count
   semester         text    not null default 'Fall 2026',
+  -- Google Apps Script Web App URL (google-apps-script/calendar-hold.gs)
+  -- that turns a signup, a transportation request, or a new event into a
+  -- calendar invite instead of an email through a paid provider. Blank =
+  -- nothing sent (fails silently, not loudly — see notify_signup() and
+  -- notify_new_event() below).
+  calendar_webhook_url text,
   constraint settings_singleton check (id = 1)
 );
+
+-- Safe to re-run against an already-provisioned settings table. Renamed
+-- from transportation_webhook_url once the same webhook started also
+-- covering member signup invites and new-event holds, not just rides.
+do $$ begin
+  if exists (select 1 from information_schema.columns
+             where table_name = 'settings' and column_name = 'transportation_webhook_url')
+     and not exists (select 1 from information_schema.columns
+             where table_name = 'settings' and column_name = 'calendar_webhook_url') then
+    alter table settings rename column transportation_webhook_url to calendar_webhook_url;
+  end if;
+end $$;
+alter table settings add column if not exists calendar_webhook_url text;
 
 create table if not exists mentors (
   id         bigint generated always as identity primary key,
@@ -28,11 +47,13 @@ create table if not exists orgs (
   givepulse_code text,
   givepulse_link text,
   website        text,                            -- the partner's own site, separate from GivePulse
+  directions     text,                            -- long-form arrival/prep notes shown on the member Signup page
   active         boolean not null default true
 );
 
 -- Safe to re-run against an already-provisioned orgs table.
 alter table orgs add column if not exists website text;
+alter table orgs add column if not exists directions text;
 
 create table if not exists events (
   id         text primary key,
@@ -42,14 +63,14 @@ create table if not exists events (
   end_time   time not null,
   capacity   int  not null default 0,            -- 0 = open to the whole cohort
   status     text not null default 'open',
-  admin_reminder_48h_sent boolean not null default false,
-  admin_reminder_24h_sent boolean not null default false,
   constraint events_capacity_sane check (capacity >= 0)
 );
 
--- Safe to re-run against an already-provisioned events table.
-alter table events add column if not exists admin_reminder_48h_sent boolean not null default false;
-alter table events add column if not exists admin_reminder_24h_sent boolean not null default false;
+-- Dropped the admin_reminder_48h_sent/24h_sent flags: they only existed to
+-- dedupe the old Resend-based cron reminders, which are gone in favor of
+-- an immediate calendar hold per event (see notify_new_event() below).
+alter table events drop column if exists admin_reminder_48h_sent;
+alter table events drop column if exists admin_reminder_24h_sent;
 
 -- ── People ─────────────────────────────────────────────────────────
 -- roster is the gate: an email must be here before anyone can sign in.
@@ -153,8 +174,6 @@ create table if not exists signups (
   transportation boolean not null default false,
   advocating     boolean not null default false,
   notes          text,
-  reminder_48h_sent boolean not null default false,
-  reminder_24h_sent boolean not null default false,
   created_at     timestamptz not null default now(),
   unique (event_id, member_email)               -- nobody claims two spots
 );
@@ -163,8 +182,12 @@ create table if not exists signups (
 alter table signups add column if not exists member_name text;
 update signups s set member_name = r.full_name
   from roster r where r.email = s.member_email and s.member_name is null;
-alter table signups add column if not exists reminder_48h_sent boolean not null default false;
-alter table signups add column if not exists reminder_24h_sent boolean not null default false;
+
+-- Dropped the reminder_48h_sent/24h_sent flags along with due_events() and
+-- the old Resend cron job — a member now gets their calendar invite once,
+-- immediately, at claim_slot() time, so there's nothing left to dedupe.
+alter table signups drop column if exists reminder_48h_sent;
+alter table signups drop column if exists reminder_24h_sent;
 
 create table if not exists service_logs (
   id           bigint generated always as identity primary key,
@@ -204,10 +227,34 @@ create table if not exists nominations (
   created_at   timestamptz not null default now()
 );
 
+-- Outreach contacts: officers' running list of who they've reached out to
+-- while building partnerships — separate from `orgs` (confirmed partners
+-- with events) and from `nominations.contact` (a one-off free-text field a
+-- member types when nominating an org, never persisted anywhere reusable).
+-- org_id is nullable: most contacts start as a lead before any partnership
+-- exists, and get linked once one does.
+create table if not exists contacts (
+  id           bigint generated always as identity primary key,
+  org_id       text references orgs(id) on delete set null,
+  org_name     text,                 -- free text when there's no org_id yet
+  name         text not null,
+  email        text,
+  phone        text,
+  title        text,                 -- their role at the organization
+  status       text not null default 'reached_out'
+                 check (status in ('reached_out','responded','meeting_set','partner','declined','no_response')),
+  notes        text,
+  last_contact_date date,
+  created_by   text references roster(email) on delete set null,
+  created_at   timestamptz not null default now()
+);
+
 create index if not exists signups_event_idx      on signups(event_id);
 create index if not exists logs_member_idx        on service_logs(member_email);
 create index if not exists logs_event_idx         on service_logs(event_id);
 create index if not exists nominations_status_idx on nominations(status);
+create index if not exists contacts_org_idx       on contacts(org_id);
+create index if not exists contacts_status_idx    on contacts(status);
 
 -- ── Helpers ────────────────────────────────────────────────────────
 
@@ -233,22 +280,12 @@ returns boolean language sql stable security definer set search_path = public as
                    where p.id = auth.uid()), false)
 $$;
 
--- Events are stored as a plain date + a plain local time — Athens, GA is
--- always Eastern, but "Eastern" shifts between EST and EDT across the
--- year. AT TIME ZONE on a naive timestamp does that conversion correctly
--- for the specific date, which fixed-offset arithmetic cannot.
--- send-event-reminders (an Edge Function on a schedule) calls this to
--- find events sitting near the 48h/24h reminder mark; p_window_minutes
--- is generous on purpose — the reminder_*_sent / admin_reminder_*_sent
--- flags are what actually prevent duplicate sends, not this window.
-create or replace function due_events(p_offset_hours int, p_window_minutes int default 30)
-returns setof events language sql stable security definer set search_path = public as $$
-  select e.* from events e
-  where e.status <> 'cancelled'
-    and (e.event_date + e.start_time) at time zone 'America/New_York'
-        between now() + make_interval(hours => p_offset_hours) - make_interval(mins => p_window_minutes)
-            and now() + make_interval(hours => p_offset_hours) + make_interval(mins => p_window_minutes)
-$$;
+-- due_events() supported the old Resend-based send-event-reminders cron
+-- job (find events sitting near the 48h/24h mark). That job is gone —
+-- calendar invites go out immediately off the signups/events inserts
+-- instead (see notify_signup() and notify_new_event() below) — so this
+-- is dropped rather than left as unused surface area.
+drop function if exists due_events(int, int);
 
 -- ── Claiming a spot, atomically ────────────────────────────────────
 -- This is the whole point of leaving spreadsheets behind. The row lock
@@ -318,6 +355,7 @@ alter table profiles     enable row level security;
 alter table signups      enable row level security;
 alter table service_logs enable row level security;
 alter table nominations  enable row level security;
+alter table contacts     enable row level security;
 
 -- Everyone signed in reads the reference data; only officers change it.
 do $$
@@ -382,6 +420,12 @@ create policy noms_insert on nominations for insert to authenticated
   with check (member_email = me());
 drop policy if exists noms_review on nominations;
 create policy noms_review on nominations for update to authenticated
+  using (is_officer()) with check (is_officer());
+
+-- Contacts are an officer working list — not cohort-readable like signups,
+-- and not member-writable like nominations.
+drop policy if exists contacts_officer on contacts;
+create policy contacts_officer on contacts for all to authenticated
   using (is_officer()) with check (is_officer());
 
 -- ── Storage: service log proof photos ───────────────────────────────
@@ -450,53 +494,146 @@ create event trigger ensure_rls on ddl_command_end
 -- returning everything. Check Database → Security Advisor after any
 -- schema change.
 
--- ── Scheduled event reminders ───────────────────────────────────────
--- Every 30 minutes, ping the send-event-reminders Edge Function. The
--- function itself does all the real work (finding due events via
--- due_events() above, emailing, and setting the *_sent flags) — this
--- job's only purpose is to wake it up on a schedule.
+-- ── Calendar holds instead of email ──────────────────────────────────
+-- There used to be a pg_cron job here waking a Resend-backed Edge
+-- Function every 30 minutes to email 48h/24h reminders. That's gone —
+-- no paid email provider anywhere in this schema now. Everything below
+-- fires immediately off the insert that caused it and posts straight to
+-- a Google Apps Script Web App (google-apps-script/calendar-hold.gs),
+-- which emails a calendar invite (.ics) to whoever should see it.
+-- Outlook and Google Calendar both read a METHOD:REQUEST .ics as a real
+-- meeting request with an Accept button.
 --
--- The header below carries the PUBLISHABLE key (sb_publishable_...), which
--- is safe to store here — it is designed to be public, same as it is in
--- the browser bundle. The Edge Function's own SUPABASE_SERVICE_ROLE_KEY
--- (injected by the runtime, never written here) is what actually lets it
--- read and write the tables; this key only gets the request past
--- Supabase's gateway.
---
--- Wrapped in DO/exception blocks on purpose: a multi-statement paste in
--- the SQL editor runs as one implicit transaction, so an error here — say,
--- pg_cron not being available on the project's plan — would otherwise roll
--- back everything above it too, including due_events(). If this section
--- logs a notice instead of erroring, schedule send-event-reminders by hand
--- from the dashboard's Database → Cron UI instead.
+-- pg_net is what lets a plpgsql trigger make that HTTP call. Wrapped in
+-- its own DO/exception block so a plan without pg_net available doesn't
+-- roll back anything created above it.
 do $$ begin
-  create extension if not exists pg_cron with schema extensions;
   create extension if not exists pg_net with schema extensions;
 exception when others then
-  raise notice 'pg_cron/pg_net unavailable (%) — schedule send-event-reminders from the dashboard Cron UI instead.', sqlerrm;
+  raise notice 'pg_net unavailable (%) — calendar holds will silently no-op until it is enabled.', sqlerrm;
 end $$;
 
+-- Turns off the old cron job on an already-provisioned database that ran
+-- this schema before the Resend-based reminders were removed. A no-op
+-- (and harmless) if pg_cron was never enabled or the job never existed.
 do $$ begin
   perform cron.unschedule('send-event-reminders');
 exception when others then null;
 end $$;
 
-do $$ begin
-  perform cron.schedule(
-    'send-event-reminders',
-    '*/30 * * * *',
-    $sql$
-    select net.http_post(
-      url := 'https://oldxekiajjcljdbgdvtn.supabase.co/functions/v1/send-event-reminders',
-      headers := jsonb_build_object(
-        'Content-Type', 'application/json',
-        'Authorization', 'Bearer sb_publishable_zCShAEOBy9eIsfFy0xqSCw_1PhgJq3-',
-        'apikey', 'sb_publishable_zCShAEOBy9eIsfFy0xqSCw_1PhgJq3-'
-      ),
-      body := '{}'::jsonb
+-- Fires on every claim (claim_slot() is the only thing that inserts into
+-- signups) — the member always gets their own invite, and the admin
+-- inbox additionally gets a "ride needed" invite when transportation is
+-- checked. Wrapped so a blank webhook, a missing pg_net, or a down
+-- script only loses a notification — it never fails the member's claim.
+create or replace function notify_signup()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_webhook  text;
+  v_org_name text;
+  v_location text;
+  v_event    events%rowtype;
+  v_when     text;
+begin
+  select calendar_webhook_url into v_webhook from settings where id = 1;
+  if v_webhook is null or v_webhook = '' then
+    return new;
+  end if;
+
+  select * into v_event from events where id = new.event_id;
+  select name, location into v_org_name, v_location from orgs where id = v_event.org_id;
+  v_org_name := coalesce(v_org_name, v_event.org_id);
+  v_when := to_char(v_event.event_date, 'FMDay, FMMonth FMDD');
+
+  begin
+    perform net.http_post(
+      url := v_webhook,
+      headers := jsonb_build_object('Content-Type', 'application/json'),
+      body := jsonb_build_object(
+        'to', new.member_email,
+        'summary', v_org_name || ' — ' || v_when,
+        'description', 'You''re signed up for ' || v_org_name || ' on ' || v_when
+          || '. Can''t make it? Give up your spot from the Opportunities page so someone '
+          || 'else can take it — not within 48 hours of the event, though; text the '
+          || 'service chair instead.',
+        'location', v_location,
+        'event_date', v_event.event_date,
+        'start_time', v_event.start_time,
+        'end_time', v_event.end_time
+      )
     );
-    $sql$
-  );
-exception when others then
-  raise notice 'Could not schedule send-event-reminders (%) — schedule it from the dashboard Cron UI instead.', sqlerrm;
+  exception when others then
+    raise log 'notify_signup: could not queue member invite (%)', sqlerrm;
+  end;
+
+  if new.transportation then
+    begin
+      perform net.http_post(
+        url := v_webhook,
+        headers := jsonb_build_object('Content-Type', 'application/json'),
+        body := jsonb_build_object(
+          'summary', 'Ride needed: ' || coalesce(new.member_name, new.member_email) || ' — ' || v_org_name,
+          'description', coalesce(new.member_name, new.member_email) || ' (' || new.member_email
+            || ') needs transportation to ' || v_org_name || ' on ' || v_when
+            || case when new.notes is not null then '. Notes: ' || new.notes else '' end,
+          'location', v_location,
+          'event_date', v_event.event_date,
+          'start_time', v_event.start_time,
+          'end_time', v_event.end_time
+        )
+      );
+    exception when others then
+      raise log 'notify_signup: could not queue transportation alert (%)', sqlerrm;
+    end;
+  end if;
+
+  return new;
 end $$;
+
+drop trigger if exists on_signup_calendar_hold on signups;
+create trigger on_signup_calendar_hold
+  after insert on signups
+  for each row execute function notify_signup();
+
+-- Gives the admin a hold on their own calendar the moment an officer
+-- adds an event — one per event, not one per signup.
+create or replace function notify_new_event()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_webhook  text;
+  v_org_name text;
+  v_when     text;
+begin
+  select calendar_webhook_url into v_webhook from settings where id = 1;
+  if v_webhook is null or v_webhook = '' then
+    return new;
+  end if;
+
+  select name into v_org_name from orgs where id = new.org_id;
+  v_org_name := coalesce(v_org_name, new.org_id);
+  v_when := to_char(new.event_date, 'FMDay, FMMonth FMDD');
+
+  begin
+    perform net.http_post(
+      url := v_webhook,
+      headers := jsonb_build_object('Content-Type', 'application/json'),
+      body := jsonb_build_object(
+        'summary', v_org_name || ' — ' || v_when,
+        'description', v_org_name || ' on ' || v_when || case when new.capacity > 0
+          then ' (' || new.capacity || ' spots).' else ' (open to the whole cohort).' end,
+        'event_date', new.event_date,
+        'start_time', new.start_time,
+        'end_time', new.end_time
+      )
+    );
+  exception when others then
+    raise log 'notify_new_event: could not queue admin hold (%)', sqlerrm;
+  end;
+
+  return new;
+end $$;
+
+drop trigger if exists on_event_calendar_hold on events;
+create trigger on_event_calendar_hold
+  after insert on events
+  for each row execute function notify_new_event();

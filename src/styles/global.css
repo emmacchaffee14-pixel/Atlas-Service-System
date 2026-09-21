@@ -9,6 +9,12 @@
   --route: #111418;
   --good: #0f2340;
   --shade: #edeff3;
+  /* Text/icon color for anything filled solid with --water (buttons, the
+     active nav item, the toast). --water flips light in dark mode so it
+     keeps working as an accent against a dark page — which makes it
+     wrong as a fill color paired with a hardcoded white foreground: light
+     fill + white text is illegible. This flips with it instead. */
+  --fill-ink: #ffffff;
   --serif: 'Jost', 'Futura', 'Century Gothic', Helvetica, Arial, sans-serif;
   --cond: 'Jost', 'Futura', 'Century Gothic', Helvetica, Arial, sans-serif;
   --script: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
@@ -29,6 +35,7 @@
     --route: #e8ecf2;
     --good: #bfd0e8;
     --shade: #17263b;
+    --fill-ink: #0b1524;
   }
 }
 :root[data-theme='dark'] {
@@ -42,6 +49,7 @@
   --route: #e8ecf2;
   --good: #bfd0e8;
   --shade: #17263b;
+  --fill-ink: #0b1524;
 }
 
 *,
@@ -119,50 +127,40 @@ a {
   padding: 0 20px 80px;
 }
 
-/* ── Officer chrome (header / nav / session) ────────────────── */
+/* ── App chrome: left sidebar nav (officer + member areas) ───── */
 
-header.top {
-  border-bottom: 1px solid var(--rule);
-  background: var(--base);
-  position: sticky;
-  top: env(safe-area-inset-top, 0px);
-  z-index: 20;
-}
-
-.topin {
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: 14px 20px;
+.shell {
   display: flex;
-  gap: 24px;
-  align-items: center;
-  flex-wrap: wrap;
+  align-items: flex-start;
+  min-height: 100dvh;
 }
 
 .mark {
   font-family: var(--serif);
-  font-weight: 600;
-  font-size: 19px;
-  letter-spacing: 0.1em;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.02em;
   background: none;
   border: 0;
   padding: 0;
   color: var(--water);
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 9px;
   text-decoration: none;
+  min-width: 0;
+  white-space: nowrap;
 }
 
 .mark em {
   font-style: normal;
-  font-weight: 300;
+  font-weight: 400;
   color: var(--soft);
 }
 
 .globe {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   flex: 0 0 auto;
   fill: none;
   stroke: var(--water);
@@ -170,57 +168,267 @@ header.top {
   overflow: visible;
 }
 
-nav.main {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-left: 18px;
+:root {
+  --side-w: 252px;
+  --side-w-collapsed: 60px;
 }
 
-nav.main a {
+.side {
+  flex: 0 0 auto;
+  width: var(--side-w);
+  height: 100dvh;
+  position: sticky;
+  top: 0;
+  border-right: 1px solid var(--rule);
+  background: var(--base);
+  display: flex;
+  flex-direction: column;
+  transition: width 0.16s ease;
+  z-index: 25;
+}
+
+.side.collapsed {
+  width: var(--side-w-collapsed);
+}
+
+.side-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 22px 18px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.side.collapsed .side-head {
+  flex-direction: column;
+  gap: 16px;
+  padding: 22px 0;
+}
+
+.side.collapsed .mark {
+  justify-content: center;
+}
+
+.side.collapsed .mark span {
+  display: none;
+}
+
+.side-toggle {
+  margin-left: auto;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--rule);
+  background: none;
+  border-radius: 2px;
+  color: var(--soft);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.side.collapsed .side-toggle {
+  margin-left: 0;
+}
+
+.side-close {
+  display: none;
+}
+
+.side-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.side.collapsed .side-nav,
+.side.collapsed .side-foot {
+  display: none;
+}
+
+.side-nav a {
   font-family: var(--cond);
   font-size: 13px;
   font-weight: 500;
-  letter-spacing: 0.09em;
-  padding: 8px 16px;
+  letter-spacing: 0.08em;
+  padding: 10px 12px;
   text-decoration: none;
   color: var(--soft);
   border-radius: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-nav.main a.on {
+.side-nav a.on {
   background: var(--water);
-  color: #ffffff;
+  color: var(--fill-ink);
 }
 
-.session {
-  margin-left: auto;
-  font-family: var(--cond);
-  font-size: 13px;
-  color: var(--soft);
+.side-foot {
+  border-top: 1px solid var(--rule);
+  background: var(--raise);
+  padding: 18px;
   display: flex;
-  gap: 18px;
-  align-items: center;
+  flex-direction: column;
+  gap: 14px;
 }
 
-.session b {
-  color: var(--ink);
-  font-weight: 600;
+.side-id {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
 }
 
-.session button,
-.session a {
-  background: none;
-  border: 0;
-  color: var(--water);
-  text-decoration: underline;
+.side-role {
   font-family: var(--cond);
-  font-size: 13px;
-  padding: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--soft);
 }
 
-.session a.on {
+.side-id b {
+  font-family: var(--serif);
+  font-size: 15px;
   font-weight: 600;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.side-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.side-actions .btn {
+  flex: 1 1 auto;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.side-actions .btn.on {
+  background: var(--water);
+  color: var(--fill-ink);
+}
+
+.main-area {
+  flex: 1;
+  min-width: 0;
+}
+
+.watermark {
+  text-align: center;
+  font-family: var(--cond);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--soft);
+  opacity: 0.55;
+  padding: 40px 20px 34px;
+}
+
+.topbar {
+  display: none;
+}
+
+.side-backdrop {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--rule);
+    background: var(--base);
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    z-index: 20;
+  }
+
+  .hamburger {
+    flex: 0 0 auto;
+    width: 30px;
+    height: 24px;
+    background: none;
+    border: 0;
+    padding: 2px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .hamburger span {
+    display: block;
+    height: 2px;
+    background: var(--water);
+    border-radius: 1px;
+  }
+
+  .shell {
+    display: block;
+  }
+
+  .side {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(260px, 82vw);
+    transform: translateX(-100%);
+    box-shadow: 2px 0 18px rgba(0, 0, 0, 0.18);
+  }
+
+  .side.collapsed {
+    width: min(260px, 82vw);
+  }
+
+  .side.collapsed .side-head {
+    flex-direction: row;
+    padding: 16px;
+  }
+
+  .side.collapsed .mark span {
+    display: inline;
+  }
+
+  .side.collapsed .side-nav,
+  .side.collapsed .side-foot {
+    display: flex;
+  }
+
+  .side-toggle {
+    display: none;
+  }
+
+  .side-close {
+    display: block;
+    margin-left: auto;
+    background: none;
+    border: 0;
+    font-size: 22px;
+    line-height: 1;
+    color: var(--soft);
+  }
+
+  .side.mobile-open {
+    transform: translateX(0);
+  }
+
+  .side-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(17, 20, 24, 0.35);
+    z-index: 24;
+  }
 }
 
 /* ── Page primitives ─────────────────────────────────────────── */
@@ -258,7 +466,6 @@ section {
   font-style: italic;
   font-size: 19px;
   color: var(--soft);
-  max-width: 62ch;
   margin-bottom: 18px;
 }
 
@@ -278,7 +485,6 @@ section {
   font-size: 20px;
   line-height: 1.45;
   color: var(--soft);
-  max-width: 60ch;
   margin-top: 10px;
 }
 
@@ -748,7 +954,7 @@ form.card {
   padding: 11px 22px;
   border: 1px solid var(--water);
   background: var(--water);
-  color: #ffffff;
+  color: var(--fill-ink);
   border-radius: 2px;
   text-decoration: none;
   display: inline-block;
@@ -762,6 +968,18 @@ form.card {
 .btn.ghost {
   background: none;
   color: var(--water);
+}
+
+/* Reserved for actions that undo or remove something (give up a spot,
+   decline a nomination, remove an officer) — a solid fill reads as "go,"
+   so these stay unfilled. No red: per the site's palette this is weight,
+   not color — a starker border/ink than .ghost's softer navy, and bolder
+   type, the same way "Full" goes from grey to ink rather than red. */
+.btn.warn {
+  background: none;
+  border-color: var(--route);
+  color: var(--route);
+  font-weight: 700;
 }
 
 .note {
@@ -791,7 +1009,7 @@ form.card {
   transform: translateX(-50%);
   bottom: calc(20px + env(safe-area-inset-bottom, 0px));
   background: var(--water);
-  color: #ffffff;
+  color: var(--fill-ink);
   font-family: var(--cond);
   font-size: 15px;
   padding: 10px 20px;

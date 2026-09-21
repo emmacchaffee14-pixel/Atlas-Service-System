@@ -33,6 +33,22 @@ insert into orgs (id, name, location, description, impact_metric, givepulse_code
     impact_metric = excluded.impact_metric, givepulse_code = excluded.givepulse_code,
     givepulse_link = excluded.givepulse_link, active = excluded.active;
 
+-- Long-form arrival/prep notes shown on the member Signup page. Kept out
+-- of the multi-row insert above (like `website`) since it's long enough
+-- that it reads better as its own statement, dollar-quoted so the
+-- embedded line breaks don't need escaping.
+update orgs set directions = $UGARDEN$UGArden is located on 2510 South Milledge Avenue, the very next right turn after you pass the State Botanical Gardens:
+
+- Look for the cream-colored barn; this is where someone from our team will meet you!
+- There is a UGA bus route that makes a stop at UGArden called, "Riverbend Connector," and it is by request only. (Simply call UGA Transportation, request the Riverbend Connector for UGArden, and you should be good to go.)
+- There is parking available around the corner from the barn.
+
+Please be prepared for the weather:
+- Dressing in long pants and layers is recommended, even in the warmer months.
+- Close toed shoes are required, a water bottle recommended.
+- Things like hats and gloves are optional, and we have work gloves here ready for you to use.$UGARDEN$
+where id = 'ugarden';
+
 -- capacity 0 means open to the whole cohort (the ADOS book drive)
 insert into events (id, org_id, event_date, start_time, end_time, capacity) values
   ('ck-0928', 'campus-kitchen', '2026-09-28', '17:30', '19:30', 5),

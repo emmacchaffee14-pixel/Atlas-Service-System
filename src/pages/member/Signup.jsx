@@ -91,6 +91,12 @@ export default function Signup() {
         {org?.location && <p>{fmtTimeRange(ev.start_time, ev.end_time)} · {org.location}</p>}
       </div>
 
+      {org?.directions && (
+        <div className="flag" style={{ whiteSpace: 'pre-line', marginTop: 16 }}>
+          {org.directions}
+        </div>
+      )}
+
       <section>
         <form className="card" onSubmit={handleSubmit}>
           <div className="fields">

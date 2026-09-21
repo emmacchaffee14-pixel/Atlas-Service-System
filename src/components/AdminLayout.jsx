@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import GlobeMark from './GlobeMark.jsx'
+import { Navigate, Outlet, useNavigate } from 'react-router-dom'
+import Sidebar from './Sidebar.jsx'
 import { AdminDataContext } from '../context/AdminDataContext.js'
 import { supabase } from '../lib/supabaseClient.js'
 
@@ -11,11 +11,12 @@ const ADMIN_NAV = [
   ['/admin/members', 'Members'],
   ['/admin/groups', 'Groups'],
   ['/admin/events', 'Events'],
+  ['/admin/contacts', 'Contacts'],
   ['/admin/nominations', 'Nominations'],
 ]
 
 async function loadReferenceData() {
-  const [settings, roster, mentors, orgs, events, signups, logs, nominations, accountStatus] =
+  const [settings, roster, mentors, orgs, events, signups, logs, nominations, contacts, accountStatus] =
     await Promise.all([
       supabase.from('settings').select('*').eq('id', 1).maybeSingle(),
       supabase.from('roster').select('*').order('full_name'),
@@ -25,9 +26,10 @@ async function loadReferenceData() {
       supabase.from('signups').select('*'),
       supabase.from('service_logs').select('*'),
       supabase.from('nominations').select('*'),
+      supabase.from('contacts').select('*').order('created_at', { ascending: false }),
       supabase.from('account_status').select('*').order('full_name'),
     ])
-  for (const r of [settings, roster, mentors, orgs, events, signups, logs, nominations, accountStatus]) {
+  for (const r of [settings, roster, mentors, orgs, events, signups, logs, nominations, contacts, accountStatus]) {
     if (r.error) throw r.error
   }
   return {
@@ -39,6 +41,7 @@ async function loadReferenceData() {
     signups: signups.data ?? [],
     logs: logs.data ?? [],
     nominations: nominations.data ?? [],
+    contacts: contacts.data ?? [],
     accountStatus: accountStatus.data ?? [],
   }
 }
@@ -47,7 +50,6 @@ export default function AdminLayout() {
   const [gate, setGate] = useState({ status: 'loading' })
   const [data, setData] = useState(null)
   const [dataError, setDataError] = useState(null)
-  const location = useLocation()
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -134,48 +136,31 @@ export default function AdminLayout() {
   }
 
   return (
-    <>
-      <header className="top">
-        <div className="topin">
-          <Link className="mark" to="/admin" aria-label="Atlas Service, home">
-            <GlobeMark className="globe" />
-            <span>
-              Atlas <em>Service</em>
-            </span>
-          </Link>
-          <nav className="main">
-            {ADMIN_NAV.map(([path, label]) => (
-              <Link key={path} to={path} className={location.pathname === path ? 'on' : ''}>
-                {label}
-              </Link>
-            ))}
-          </nav>
-          <div className="session">
-            <span>
-              {gate.isAdmin ? 'Admin' : 'Officer'} &middot; <b>{gate.fullName}</b>
-            </span>
-            {gate.isAdmin && (
-              <Link to="/admin/settings" className={location.pathname === '/admin/settings' ? 'on' : ''}>
-                Settings
-              </Link>
-            )}
-            <button onClick={signOut}>Sign out</button>
-          </div>
+    <div className="shell">
+      <Sidebar
+        brandTo="/admin"
+        navItems={ADMIN_NAV}
+        roleLabel={gate.isAdmin ? 'Admin' : 'Officer'}
+        name={gate.fullName}
+        extraLink={gate.isAdmin ? { to: '/admin/settings', label: 'Settings' } : null}
+        onSignOut={signOut}
+      />
+      <div className="main-area">
+        <div className="wrap">
+          {dataError && <div className="flag">Could not load officer data. Try refreshing.</div>}
+          {!data && !dataError && (
+            <p className="note" style={{ padding: 40, textAlign: 'center' }}>Loading…</p>
+          )}
+          {data && (
+            <AdminDataContext.Provider
+              value={{ ...data, refresh, officerEmail: gate.email, isAdmin: gate.isAdmin }}
+            >
+              <Outlet />
+            </AdminDataContext.Provider>
+          )}
         </div>
-      </header>
-      <div className="wrap">
-        {dataError && <div className="flag">Could not load officer data. Try refreshing.</div>}
-        {!data && !dataError && (
-          <p className="note" style={{ padding: 40, textAlign: 'center' }}>Loading…</p>
-        )}
-        {data && (
-          <AdminDataContext.Provider
-            value={{ ...data, refresh, officerEmail: gate.email, isAdmin: gate.isAdmin }}
-          >
-            <Outlet />
-          </AdminDataContext.Provider>
-        )}
+        <p className="watermark">Atlas Business Society &middot; Service</p>
       </div>
-    </>
+    </div>
   )
 }

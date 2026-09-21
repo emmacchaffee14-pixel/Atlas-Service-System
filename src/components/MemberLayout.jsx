@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import GlobeMark from './GlobeMark.jsx'
+import { Navigate, Outlet, useNavigate } from 'react-router-dom'
+import Sidebar from './Sidebar.jsx'
 import { MemberDataContext } from '../context/MemberDataContext.js'
 import { supabase } from '../lib/supabaseClient.js'
 import { keyOf } from '../lib/stats.js'
@@ -42,7 +42,6 @@ export default function MemberLayout() {
   const [gate, setGate] = useState({ status: 'loading' })
   const [data, setData] = useState(null)
   const [dataError, setDataError] = useState(null)
-  const location = useLocation()
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -98,41 +97,27 @@ export default function MemberLayout() {
   }
 
   return (
-    <>
-      <header className="top">
-        <div className="topin">
-          <Link className="mark" to="/member/opportunities" aria-label="Atlas Service, home">
-            <GlobeMark className="globe" />
-            <span>
-              Atlas <em>Service</em>
-            </span>
-          </Link>
-          <nav className="main">
-            {MEMBER_NAV.map(([path, label]) => (
-              <Link key={path} to={path} className={location.pathname === path ? 'on' : ''}>
-                {label}
-              </Link>
-            ))}
-          </nav>
-          <div className="session">
-            <span>
-              <b>{data?.me?.full_name || gate.email}</b>
-            </span>
-            <button onClick={signOut}>Sign out</button>
-          </div>
+    <div className="shell">
+      <Sidebar
+        brandTo="/member/opportunities"
+        navItems={MEMBER_NAV}
+        name={data?.me?.full_name || gate.email}
+        onSignOut={signOut}
+      />
+      <div className="main-area">
+        <div className="wrap">
+          {dataError && <div className="flag">Could not load your data. Try refreshing.</div>}
+          {!data && !dataError && (
+            <p className="note" style={{ padding: 40, textAlign: 'center' }}>Loading…</p>
+          )}
+          {data && (
+            <MemberDataContext.Provider value={{ ...data, refresh, myEmail: gate.email }}>
+              <Outlet />
+            </MemberDataContext.Provider>
+          )}
         </div>
-      </header>
-      <div className="wrap">
-        {dataError && <div className="flag">Could not load your data. Try refreshing.</div>}
-        {!data && !dataError && (
-          <p className="note" style={{ padding: 40, textAlign: 'center' }}>Loading…</p>
-        )}
-        {data && (
-          <MemberDataContext.Provider value={{ ...data, refresh, myEmail: gate.email }}>
-            <Outlet />
-          </MemberDataContext.Provider>
-        )}
+        <p className="watermark">Atlas Business Society &middot; Service</p>
       </div>
-    </>
+    </div>
   )
 }

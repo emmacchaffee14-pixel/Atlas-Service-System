@@ -26,6 +26,7 @@ export default function Settings() {
   const [reqValue, setReqValue] = useState(String(reqHours(settings)))
   const [capValue, setCapValue] = useState(String(swabCap(settings)))
   const [semesterValue, setSemesterValue] = useState(settings?.semester || '')
+  const [webhookValue, setWebhookValue] = useState(settings?.calendar_webhook_url || '')
   const [roleBusy, setRoleBusy] = useState(null)
   const [promoteEmail, setPromoteEmail] = useState('')
   const [promoteAdminEmail, setPromoteAdminEmail] = useState('')
@@ -50,6 +51,7 @@ export default function Settings() {
         hour_requirement: Number(reqValue) || 0,
         swab_cap: Number(capValue) || 0,
         semester: semesterValue,
+        calendar_webhook_url: webhookValue || null,
       })
       .eq('id', 1)
     setSavingSettings(false)
@@ -224,6 +226,23 @@ export default function Settings() {
                 required
                 value={semesterValue}
                 onChange={(e) => setSemesterValue(e.target.value)}
+              />
+            </div>
+            <div className="span2">
+              <label htmlFor="stWebhook">
+                Calendar webhook
+                <small>
+                  Google Apps Script Web App URL — see google-apps-script/calendar-hold.gs. Sends
+                  a calendar invite for every signup, a ride-needed alert, and a new-event hold.
+                  Blank means nothing is sent.
+                </small>
+              </label>
+              <input
+                id="stWebhook"
+                type="url"
+                placeholder="https://script.google.com/macros/s/…/exec"
+                value={webhookValue}
+                onChange={(e) => setWebhookValue(e.target.value)}
               />
             </div>
           </div>

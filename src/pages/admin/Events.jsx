@@ -5,7 +5,9 @@ import { supabase } from '../../lib/supabaseClient.js'
 import { fmtDate } from '../../lib/format.js'
 import { computeEventStats, keyOf, mentorName, round } from '../../lib/stats.js'
 
+const NEW_ORG_SENTINEL = '__new__'
 const NEW_EVENT_INITIAL = { orgId: '', date: '', start: '', end: '', capacity: '0' }
+const NEW_ORG_INITIAL = { name: '', location: '', impactMetric: '', website: '' }
 
 function makeEventId(existingEvents, orgId, date) {
   const mmdd = date.replace(/-/g, '').slice(4)
@@ -16,11 +18,24 @@ function makeEventId(existingEvents, orgId, date) {
   return `${base}-${n}`
 }
 
+function makeOrgId(existingOrgs, name) {
+  const base = name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'partner'
+  if (!existingOrgs.some((o) => o.id === base)) return base
+  let n = 2
+  while (existingOrgs.some((o) => o.id === `${base}-${n}`)) n++
+  return `${base}-${n}`
+}
+
 export default function Events() {
   const { roster, mentors, orgs, events, signups, logs, refresh } = useAdminData()
   const toast = useToast()
   const [rowBusy, setRowBusy] = useState(null)
   const [newEvent, setNewEvent] = useState(NEW_EVENT_INITIAL)
+  const [newOrg, setNewOrg] = useState(NEW_ORG_INITIAL)
   const [adding, setAdding] = useState(false)
 
   async function updateEvent(id, patch) {
@@ -36,15 +51,38 @@ export default function Events() {
 
   async function addEvent(e) {
     e.preventDefault()
+    const creatingOrg = newEvent.orgId === NEW_ORG_SENTINEL
     if (!newEvent.orgId || !newEvent.date || !newEvent.start || !newEvent.end) {
       toast('Fill in the partner, date, and both times.')
       return
     }
+    if (creatingOrg && !newOrg.name.trim()) {
+      toast('Give the new partner a name.')
+      return
+    }
     setAdding(true)
-    const id = makeEventId(events, newEvent.orgId, newEvent.date)
+
+    let orgId = newEvent.orgId
+    if (creatingOrg) {
+      orgId = makeOrgId(orgs, newOrg.name)
+      const { error: orgError } = await supabase.from('orgs').insert({
+        id: orgId,
+        name: newOrg.name.trim(),
+        location: newOrg.location || null,
+        impact_metric: newOrg.impactMetric || null,
+        website: newOrg.website || null,
+      })
+      if (orgError) {
+        setAdding(false)
+        toast('Could not create that partner.')
+        return
+      }
+    }
+
+    const id = makeEventId(events, orgId, newEvent.date)
     const { error } = await supabase.from('events').insert({
       id,
-      org_id: newEvent.orgId,
+      org_id: orgId,
       event_date: newEvent.date,
       start_time: newEvent.start,
       end_time: newEvent.end,
@@ -57,12 +95,26 @@ export default function Events() {
       return
     }
     setNewEvent(NEW_EVENT_INITIAL)
+    setNewOrg(NEW_ORG_INITIAL)
     await refresh()
-    toast('Event added.')
+    toast(creatingOrg ? 'Partner and event added.' : 'Event added.')
   }
 
   const orgsById = useMemo(() => new Map(orgs.map((o) => [o.id, o])), [orgs])
+  const eventsById = useMemo(() => new Map(events.map((e) => [e.id, e])), [events])
   const rosterByEmail = useMemo(() => new Map(roster.map((r) => [keyOf(r.email), r])), [roster])
+
+  const transportationRows = useMemo(
+    () =>
+      signups
+        .filter((s) => s.transportation)
+        .map((s) => {
+          const event = eventsById.get(s.event_id)
+          return { signup: s, event, org: event ? orgsById.get(event.org_id) : null }
+        })
+        .sort((a, b) => (a.event?.event_date || '').localeCompare(b.event?.event_date || '')),
+    [signups, eventsById, orgsById],
+  )
 
   const sortedEvents = useMemo(
     () => [...events].sort((x, y) => (x.event_date || '').localeCompare(y.event_date || '')),
@@ -109,6 +161,45 @@ export default function Events() {
         <h1>Events</h1>
         <p>Claims, logs and impact per event. Capacity is enforced at claim time.</p>
       </div>
+
+      <section>
+        <div className="plate">
+          <h2>Needs Transportation</h2>
+          <span>{transportationRows.length} member(s)</span>
+        </div>
+        {transportationRows.length === 0 ? (
+          <p className="empty">Nobody has asked for a ride yet.</p>
+        ) : (
+          <div className="scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Member</th>
+                  <th>Event</th>
+                  <th>Date</th>
+                  <th>Mentor</th>
+                  <th className="wrapok">Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {transportationRows.map(({ signup, event, org }) => (
+                  <tr key={signup.id}>
+                    <td>{rosterByEmail.get(keyOf(signup.member_email))?.full_name || signup.member_email}</td>
+                    <td>{org?.name || event?.org_id || '—'}</td>
+                    <td>{event ? fmtDate(event.event_date) : '—'}</td>
+                    <td>{mentorName(signup.mentor_id, mentors) || '—'}</td>
+                    <td className="wrapok">{signup.notes || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p className="note">
+          A calendar hold goes out automatically the moment someone checks &ldquo;yes&rdquo; for
+          transportation while claiming a spot — see Settings for the alert webhook.
+        </p>
+      </section>
 
       <section>
         <div className="scroll">
@@ -255,8 +346,59 @@ export default function Events() {
                     {o.name}
                   </option>
                 ))}
+                <option value={NEW_ORG_SENTINEL}>+ New partner…</option>
               </select>
             </div>
+            {newEvent.orgId === NEW_ORG_SENTINEL && (
+              <>
+                <div>
+                  <label htmlFor="noName">New partner name</label>
+                  <input
+                    id="noName"
+                    type="text"
+                    required
+                    value={newOrg.name}
+                    onChange={(e) => setNewOrg((f) => ({ ...f, name: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="noLocation">
+                    Location
+                    <small>Optional</small>
+                  </label>
+                  <input
+                    id="noLocation"
+                    type="text"
+                    value={newOrg.location}
+                    onChange={(e) => setNewOrg((f) => ({ ...f, location: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="noMetric">
+                    Impact metric
+                    <small>e.g. Meals Cooked</small>
+                  </label>
+                  <input
+                    id="noMetric"
+                    type="text"
+                    value={newOrg.impactMetric}
+                    onChange={(e) => setNewOrg((f) => ({ ...f, impactMetric: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="noWebsite">
+                    Website
+                    <small>Optional</small>
+                  </label>
+                  <input
+                    id="noWebsite"
+                    type="url"
+                    value={newOrg.website}
+                    onChange={(e) => setNewOrg((f) => ({ ...f, website: e.target.value }))}
+                  />
+                </div>
+              </>
+            )}
             <div>
               <label htmlFor="neDate">Date</label>
               <input

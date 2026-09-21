@@ -15,17 +15,21 @@ export default function Dashboard() {
 
   const eventsById = useMemo(() => new Map(events.map((e) => [e.id, e])), [events])
 
+  // Officers and admins run the cohort but aren't held to the service-hour
+  // requirement themselves, so they're left out of member-facing stats here.
+  const memberRoster = useMemo(() => roster.filter((m) => !m.is_officer), [roster])
+
   const memberStats = useMemo(
     () =>
-      roster.map((m) => ({
+      memberRoster.map((m) => ({
         member: m,
         stats: computeMemberStats(m.email, { logs, signups, eventsById, settings }),
       })),
-    [roster, logs, signups, eventsById, settings],
+    [memberRoster, logs, signups, eventsById, settings],
   )
 
   const met = memberStats.filter((r) => r.stats.met).length
-  const n = roster.length
+  const n = memberRoster.length
   const req = reqHours(settings)
   const cap = swabCap(settings)
 
@@ -33,11 +37,32 @@ export default function Dashboard() {
   const served = memberStats.filter((r) => r.stats.total > 0).length
   const pendingNoms = nominations.filter((x) => (x.status || 'pending') === 'pending').length
 
+  // The year-end headline numbers CLAUDE.md describes ("books donated",
+  // "meals cooked") — verified impact (per-event average, never the raw
+  // reported sum), rolled up by metric so two partners sharing a metric
+  // land in one figure instead of two separate partner rows.
+  const impactByMetric = useMemo(() => {
+    const by = new Map()
+    events.forEach((ev) => {
+      const org = orgs.find((o) => o.id === ev.org_id)
+      const metric = (org?.impact_metric || '').trim()
+      if (!metric) return
+      const stats = computeEventStats(ev, { signups, logs })
+      if (!stats.verified) return
+      const key = metric.toLowerCase()
+      if (!by.has(key)) by.set(key, { metric, verified: 0, partners: new Set() })
+      const agg = by.get(key)
+      agg.verified += stats.verified
+      agg.partners.add(org?.name || ev.org_id)
+    })
+    return [...by.values()].sort((a, b) => b.verified - a.verified)
+  }, [events, orgs, signups, logs])
+
   const issues = []
-  const noMentor = roster.filter((m) => !m.mentor_id).length
+  const noMentor = memberRoster.filter((m) => !m.mentor_id).length
   if (noMentor) {
     issues.push(
-      `${noMentor} of ${roster.length} members have no mentor assigned, so group reporting is incomplete. Fix it under Groups.`,
+      `${noMentor} of ${memberRoster.length} members have no mentor assigned, so group reporting is incomplete. Fix it under Groups.`,
     )
   }
   const noGroup = mentors.filter((m) => !m.group_name).length
@@ -115,6 +140,34 @@ export default function Dashboard() {
             </div>
           ))}
         </div>
+      </section>
+
+      <section>
+        <div className="plate">
+          <h2>Impact This Semester</h2>
+        </div>
+        {impactByMetric.length === 0 ? (
+          <p className="empty">No verified impact yet — it fills in once service logs report a quantity.</p>
+        ) : (
+          <>
+            <div className="figs">
+              {impactByMetric.map((agg) => (
+                <div
+                  className="fig"
+                  key={agg.metric}
+                  title={[...agg.partners].join(', ')}
+                >
+                  <b>{agg.verified}</b>
+                  <span>{agg.metric}</span>
+                </div>
+              ))}
+            </div>
+            <p className="note">
+              Verified impact only — the per-event average, not the raw sum of every member&rsquo;s
+              answer. Hover a figure to see which partners feed it.
+            </p>
+          </>
+        )}
       </section>
 
       <section>

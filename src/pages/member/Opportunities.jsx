@@ -83,22 +83,23 @@ export default function Opportunities() {
                       Visit website
                     </a>
                   )}
+                  {org.directions && <p className="desc" style={{ whiteSpace: 'pre-line' }}>{org.directions}</p>}
                   {org.givepulse_code && (
                     <div className="givep">
                       {org.givepulse_code === 'TBD' ? (
-                        'A GivePulse registration is required for this partner — code coming soon.'
+                        <>A GivePulse registration is required for {org.name} — code coming soon.</>
                       ) : (
                         <>
-                          Also register on GivePulse with code {org.givepulse_code}
-                          {org.givepulse_link && (
-                            <>
-                              {' '}
-                              &middot;{' '}
-                              <a href={org.givepulse_link} target="_blank" rel="noopener noreferrer">
-                                open GivePulse
-                              </a>
-                            </>
+                          Also register with {org.name} on GivePulse:{' '}
+                          {org.givepulse_link ? (
+                            <a href={org.givepulse_link} target="_blank" rel="noopener noreferrer">
+                              Register on GivePulse
+                            </a>
+                          ) : (
+                            'Register on GivePulse'
                           )}
+                          <br />
+                          Code: {org.givepulse_code}
                         </>
                       )}
                     </div>
