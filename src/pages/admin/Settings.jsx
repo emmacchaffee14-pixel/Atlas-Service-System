@@ -28,8 +28,10 @@ export default function Settings() {
   const [semesterValue, setSemesterValue] = useState(settings?.semester || '')
   const [webhookValue, setWebhookValue] = useState(settings?.calendar_webhook_url || '')
   const [roleBusy, setRoleBusy] = useState(null)
-  const [promoteEmail, setPromoteEmail] = useState('')
-  const [promoteAdminEmail, setPromoteAdminEmail] = useState('')
+  const [newOfficerName, setNewOfficerName] = useState('')
+  const [newOfficerEmail, setNewOfficerEmail] = useState('')
+  const [makeAdmin, setMakeAdmin] = useState(false)
+  const [addingOfficer, setAddingOfficer] = useState(false)
   const [accountBusy, setAccountBusy] = useState(null)
   const [bulkBusy, setBulkBusy] = useState(false)
 
@@ -38,9 +40,7 @@ export default function Settings() {
   }
 
   const officers = roster.filter((r) => r.is_officer)
-  const promotable = roster.filter((r) => !r.is_officer)
   const admins = roster.filter((r) => r.is_admin)
-  const promotableToAdmin = roster.filter((r) => r.is_officer && !r.is_admin)
 
   async function saveSettings(e) {
     e.preventDefault()
@@ -86,21 +86,6 @@ export default function Settings() {
     toast('Officer removed.')
   }
 
-  async function promoteOfficer(e) {
-    e.preventDefault()
-    if (!promoteEmail) return
-    setRoleBusy(promoteEmail)
-    const { error } = await supabase.from('roster').update({ is_officer: true }).eq('email', promoteEmail)
-    setRoleBusy(null)
-    if (error) {
-      toast('Could not add that officer.')
-      return
-    }
-    setPromoteEmail('')
-    await refresh()
-    toast('Officer added.')
-  }
-
   async function demoteAdmin(email) {
     if (admins.length <= 1) {
       toast('At least one admin is required. Promote someone else first.')
@@ -121,19 +106,48 @@ export default function Settings() {
     toast('Admin removed.')
   }
 
-  async function promoteAdmin(e) {
+  // The only path to officer/admin access now — works whether the person
+  // is already on the roster (like an existing member) or not (like a
+  // mentor who's never had a login). The roster insert, if needed, always
+  // leaves is_officer/is_admin false; the update right after is what
+  // actually grants access, so it goes through guard_role_changes() like
+  // every other role change here, rather than around it.
+  //
+  // is_admin only ever gets OR'd in, never overwritten false, so re-using
+  // this form to re-invite or rename an existing admin can't silently
+  // strip their access just because the checkbox was left unticked —
+  // that's what the explicit Remove buttons above are for.
+  async function addOfficer(e) {
     e.preventDefault()
-    if (!promoteAdminEmail) return
-    setRoleBusy(promoteAdminEmail)
-    const { error } = await supabase.from('roster').update({ is_admin: true }).eq('email', promoteAdminEmail)
-    setRoleBusy(null)
-    if (error) {
-      toast('Could not add that admin.')
+    if (!newOfficerName.trim() || !newOfficerEmail.trim()) return
+    const email = newOfficerEmail.trim().toLowerCase()
+    const fullName = newOfficerName.trim()
+    const alreadyAdmin = roster.some((r) => r.email.toLowerCase() === email && r.is_admin)
+    setAddingOfficer(true)
+    const { error: insertError } = await supabase.from('roster').insert({ email, full_name: fullName })
+    if (insertError && insertError.code !== '23505') {
+      setAddingOfficer(false)
+      toast('Could not add that person.')
       return
     }
-    setPromoteAdminEmail('')
+    const { error } = await supabase
+      .from('roster')
+      .update({ full_name: fullName, is_officer: true, is_admin: makeAdmin || alreadyAdmin })
+      .eq('email', email)
+    setAddingOfficer(false)
+    if (error) {
+      toast('Could not grant officer access.')
+      return
+    }
+    setNewOfficerName('')
+    setNewOfficerEmail('')
+    setMakeAdmin(false)
     await refresh()
-    toast('Admin added.')
+    toast(
+      makeAdmin
+        ? 'Officer and admin access granted. Invite them from Accounts below.'
+        : 'Officer access granted. Invite them from Accounts below.',
+    )
   }
 
   async function handleAccountAction(row) {
@@ -294,26 +308,41 @@ export default function Settings() {
           </div>
         )}
 
-        <form className="card" style={{ marginTop: 14, maxWidth: 'none' }} onSubmit={promoteOfficer}>
+        <form className="card" style={{ marginTop: 14, maxWidth: 'none' }} onSubmit={addOfficer}>
           <div className="fields">
             <div>
-              <label htmlFor="ofEmail">
-                Promote a member to officer
-                <small>They must already be on the roster.</small>
+              <label htmlFor="ofName">
+                Add an Officer
+                <small>Works even if they're not on the roster yet — a mentor, say.</small>
               </label>
-              <select id="ofEmail" value={promoteEmail} onChange={(e) => setPromoteEmail(e.target.value)} required>
-                <option value="">Choose a member</option>
-                {promotable.map((r) => (
-                  <option key={r.email} value={r.email}>
-                    {r.full_name} &mdash; {r.email}
-                  </option>
-                ))}
-              </select>
+              <input
+                id="ofName"
+                type="text"
+                required
+                placeholder="Full name"
+                value={newOfficerName}
+                onChange={(e) => setNewOfficerName(e.target.value)}
+              />
+            </div>
+            <div>
+              <label htmlFor="ofEmail">UGA Email</label>
+              <input
+                id="ofEmail"
+                type="email"
+                required
+                placeholder="name@uga.edu"
+                value={newOfficerEmail}
+                onChange={(e) => setNewOfficerEmail(e.target.value)}
+              />
             </div>
           </div>
           <div className="formfoot">
-            <button className="btn" type="submit" disabled={!promoteEmail || roleBusy === promoteEmail}>
-              Make Officer
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input type="checkbox" checked={makeAdmin} onChange={(e) => setMakeAdmin(e.target.checked)} />
+              Also make them an admin
+            </label>
+            <button className="btn" type="submit" disabled={addingOfficer}>
+              Add Officer
             </button>
           </div>
         </form>
@@ -322,7 +351,10 @@ export default function Settings() {
       <section>
         <div className="plate">
           <h2>Admin Access</h2>
-          <span>Admins reach Settings; everyone else on the officer roster does not.</span>
+          <span>
+            Admins reach Settings; everyone else on the officer roster does not. Grant it from the
+            Add an Officer form above.
+          </span>
         </div>
         {admins.length === 0 ? (
           <p className="empty">No admins yet.</p>
@@ -359,39 +391,6 @@ export default function Settings() {
             </table>
           </div>
         )}
-
-        <form className="card" style={{ marginTop: 14, maxWidth: 'none' }} onSubmit={promoteAdmin}>
-          <div className="fields">
-            <div>
-              <label htmlFor="adEmail">
-                Promote an officer to admin status
-                <small>They must already be an officer.</small>
-              </label>
-              <select
-                id="adEmail"
-                value={promoteAdminEmail}
-                onChange={(e) => setPromoteAdminEmail(e.target.value)}
-                required
-              >
-                <option value="">Choose an officer</option>
-                {promotableToAdmin.map((r) => (
-                  <option key={r.email} value={r.email}>
-                    {r.full_name} &mdash; {r.email}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div className="formfoot">
-            <button
-              className="btn"
-              type="submit"
-              disabled={!promoteAdminEmail || roleBusy === promoteAdminEmail}
-            >
-              Make Admin
-            </button>
-          </div>
-        </form>
       </section>
 
       <section>
