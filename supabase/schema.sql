@@ -462,26 +462,41 @@ create event trigger ensure_rls on ddl_command_end
 -- (injected by the runtime, never written here) is what actually lets it
 -- read and write the tables; this key only gets the request past
 -- Supabase's gateway.
-create extension if not exists pg_cron with schema extensions;
-create extension if not exists pg_net with schema extensions;
+--
+-- Wrapped in DO/exception blocks on purpose: a multi-statement paste in
+-- the SQL editor runs as one implicit transaction, so an error here — say,
+-- pg_cron not being available on the project's plan — would otherwise roll
+-- back everything above it too, including due_events(). If this section
+-- logs a notice instead of erroring, schedule send-event-reminders by hand
+-- from the dashboard's Database → Cron UI instead.
+do $$ begin
+  create extension if not exists pg_cron with schema extensions;
+  create extension if not exists pg_net with schema extensions;
+exception when others then
+  raise notice 'pg_cron/pg_net unavailable (%) — schedule send-event-reminders from the dashboard Cron UI instead.', sqlerrm;
+end $$;
 
 do $$ begin
   perform cron.unschedule('send-event-reminders');
 exception when others then null;
 end $$;
 
-select cron.schedule(
-  'send-event-reminders',
-  '*/30 * * * *',
-  $$
-  select net.http_post(
-    url := 'https://oldxekiajjcljdbgdvtn.supabase.co/functions/v1/send-event-reminders',
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'Authorization', 'Bearer sb_publishable_zCShAEOBy9eIsfFy0xqSCw_1PhgJq3-',
-      'apikey', 'sb_publishable_zCShAEOBy9eIsfFy0xqSCw_1PhgJq3-'
-    ),
-    body := '{}'::jsonb
+do $$ begin
+  perform cron.schedule(
+    'send-event-reminders',
+    '*/30 * * * *',
+    $sql$
+    select net.http_post(
+      url := 'https://oldxekiajjcljdbgdvtn.supabase.co/functions/v1/send-event-reminders',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'Authorization', 'Bearer sb_publishable_zCShAEOBy9eIsfFy0xqSCw_1PhgJq3-',
+        'apikey', 'sb_publishable_zCShAEOBy9eIsfFy0xqSCw_1PhgJq3-'
+      ),
+      body := '{}'::jsonb
+    );
+    $sql$
   );
-  $$
-);
+exception when others then
+  raise notice 'Could not schedule send-event-reminders (%) — schedule it from the dashboard Cron UI instead.', sqlerrm;
+end $$;
