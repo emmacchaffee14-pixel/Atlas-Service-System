@@ -445,7 +445,7 @@ export default function Events() {
           </div>
           <div className="formfoot">
             <button className="btn" type="submit" disabled={adding}>
-              Add event
+              Add Event
             </button>
           </div>
         </form>

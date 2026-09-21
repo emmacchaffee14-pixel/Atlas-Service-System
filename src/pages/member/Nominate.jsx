@@ -114,7 +114,7 @@ export default function Nominate() {
           </div>
           <div className="formfoot">
             <button className="btn" type="submit" disabled={busy}>
-              Submit nomination
+              Submit Nomination
             </button>
             <span className="note">You still owe a service log after you serve.</span>
           </div>

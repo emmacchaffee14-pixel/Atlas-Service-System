@@ -254,7 +254,7 @@ export default function Members() {
           </table>
         </div>
         <button className="btn ghost sm" style={{ marginTop: 14 }} onClick={exportCsv}>
-          Export this view as CSV
+          Export This View as CSV
         </button>
       </section>
     </>

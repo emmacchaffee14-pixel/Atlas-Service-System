@@ -133,7 +133,7 @@ export default function Opportunities() {
                       disabled={busyId === ev.id}
                       onClick={() => releaseSlot(ev, org.name || ev.org_id)}
                     >
-                      Give up my spot
+                      Give Up My Spot
                     </button>
                   ) : full ? (
                     <button className="btn" disabled>
@@ -141,7 +141,7 @@ export default function Opportunities() {
                     </button>
                   ) : (
                     <Link className="btn" to={`/member/signup/${ev.id}`}>
-                      Claim a spot
+                      Claim a Spot
                     </Link>
                   )}
                 </div>

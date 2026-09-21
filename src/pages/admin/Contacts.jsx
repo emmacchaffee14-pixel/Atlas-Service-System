@@ -293,7 +293,7 @@ export default function Contacts() {
           </div>
           <div className="formfoot">
             <button className="btn" type="submit" disabled={adding}>
-              Add contact
+              Add Contact
             </button>
           </div>
         </form>

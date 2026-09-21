@@ -176,7 +176,7 @@ export default function Signup() {
 
           <div className="formfoot">
             <button className="btn" type="submit" disabled={busy}>
-              Claim my spot
+              Claim My Spot
             </button>
             <Link className="btn ghost" to="/member/opportunities">
               Cancel

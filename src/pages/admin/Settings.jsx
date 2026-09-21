@@ -60,7 +60,7 @@ export default function Settings() {
       return
     }
     await refresh()
-    toast('Settings saved.')
+    toast('Settings Saved.')
   }
 
   async function demoteOfficer(email) {
@@ -248,7 +248,7 @@ export default function Settings() {
           </div>
           <div className="formfoot">
             <button className="btn" type="submit" disabled={savingSettings}>
-              Save settings
+              Save Settings
             </button>
           </div>
         </form>
@@ -407,7 +407,7 @@ export default function Settings() {
         </p>
         <div className="formfoot" style={{ marginTop: 0, marginBottom: 16 }}>
           <button className="btn" disabled={bulkBusy} onClick={inviteAllWithoutAccount}>
-            Invite Everyone Without An Account
+            Invite Everyone Without an Account
           </button>
         </div>
         <div className="scroll">

@@ -156,7 +156,7 @@ export default function LogService() {
           </div>
           <div className="formfoot">
             <button className="btn" type="submit" disabled={busy}>
-              File service log
+              File Service Log
             </button>
             <span className="note">{swabHint}</span>
           </div>

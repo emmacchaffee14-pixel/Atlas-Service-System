@@ -93,7 +93,7 @@ export default function Sidebar({ brandTo, navItems, roleLabel, name, extraLink,
               </Link>
             )}
             <button className="btn ghost sm" onClick={onSignOut}>
-              Sign out
+              Sign Out
             </button>
           </div>
         </div>
