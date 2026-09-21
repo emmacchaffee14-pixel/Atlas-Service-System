@@ -2,9 +2,11 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMemberData } from '../../context/MemberDataContext.js'
 import { useToast } from '../../context/ToastContext.jsx'
+import FileField from '../../components/FileField.jsx'
 import { supabase } from '../../lib/supabaseClient.js'
 import { fmtDate } from '../../lib/format.js'
 import { isAdos, keyOf, swabCap } from '../../lib/stats.js'
+import { PROOF_ACCEPT, uploadProof, validateProofFile } from '../../lib/proofUpload.js'
 
 export default function LogService() {
   const { orgs, events, signups, settings, myEmail, refresh } = useMemberData()
@@ -24,7 +26,7 @@ export default function LogService() {
   const [eventId, setEventId] = useState('')
   const [hours, setHours] = useState('')
   const [quantity, setQuantity] = useState('')
-  const [proofUrl, setProofUrl] = useState('')
+  const [proofFile, setProofFile] = useState(null)
   const [takeaway, setTakeaway] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -44,13 +46,30 @@ export default function LogService() {
       toast('Pick the event you served at.')
       return
     }
+    if (proofFile) {
+      const problem = validateProofFile(proofFile)
+      if (problem) {
+        toast(problem)
+        return
+      }
+    }
     setBusy(true)
+    let proofPath = null
+    if (proofFile) {
+      try {
+        proofPath = await uploadProof(supabase, myEmail, proofFile)
+      } catch {
+        setBusy(false)
+        toast('Could not upload that file. Try again.')
+        return
+      }
+    }
     const { error } = await supabase.from('service_logs').insert({
       event_id: eventId,
       member_email: myEmail,
       hours: Number(hours) || 0,
       quantity: quantity === '' ? null : Number(quantity) || 0,
-      proof_url: proofUrl || null,
+      proof_path: proofPath,
       takeaway: takeaway || null,
     })
     setBusy(false)
@@ -120,12 +139,12 @@ export default function LogService() {
                 onChange={(e) => setQuantity(e.target.value)}
               />
             </div>
-            <div>
+            <div className="span2">
               <label htmlFor="lgProof">
-                Link to your proof photo
-                <small>Drive or photos link. Keep it professional.</small>
+                Upload your proof photo
+                <small>JPG, PNG, HEIC, or PDF. Kept private — only you and officers can see it.</small>
               </label>
-              <input id="lgProof" type="url" value={proofUrl} onChange={(e) => setProofUrl(e.target.value)} />
+              <FileField id="lgProof" accept={PROOF_ACCEPT} file={proofFile} onChange={setProofFile} />
             </div>
             <div className="span2">
               <label htmlFor="lgTake">

@@ -154,9 +154,10 @@ Taken from atlasuga.com — match it, since this sits under the same domain.
 - **Mentor groups are unnamed and unassigned.** Group reporting stays empty
   until an officer fills them in. The Groups page exists for this.
 - **ESP has no GivePulse code** — shows as TBD, flagged on the dashboard.
-- **Photo upload for service logs** is a URL field in the prototype because
-  its datastore could not accept uploads. Supabase Storage can. Make it a real
-  upload, private bucket, officers-read.
+- ~~Photo upload for service logs~~ Done: a real upload into the private
+  `service-proofs` Storage bucket (JPG/PNG/HEIC/PDF). Members can only reach
+  their own folder; officers can read every folder. Viewing goes through a
+  signed URL — nothing in that bucket has a public link.
 
 ## Deploying
 

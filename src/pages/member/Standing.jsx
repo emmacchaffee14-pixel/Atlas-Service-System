@@ -1,10 +1,27 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useMemberData } from '../../context/MemberDataContext.js'
+import { useToast } from '../../context/ToastContext.jsx'
+import { supabase } from '../../lib/supabaseClient.js'
 import { fmtDate, fmtTimeRange } from '../../lib/format.js'
+import { signedProofUrl } from '../../lib/proofUpload.js'
 import { computeMemberStats, groupOf, keyOf, mentorName, reqHours, round, swabCap } from '../../lib/stats.js'
 
 export default function Standing() {
   const { orgs, events, signups, logs, mentors, me, settings, myEmail } = useMemberData()
+  const toast = useToast()
+  const [openingId, setOpeningId] = useState(null)
+
+  async function viewProof(logId, path) {
+    setOpeningId(logId)
+    try {
+      const url = await signedProofUrl(supabase, path)
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } catch {
+      toast('Could not open that file.')
+    } finally {
+      setOpeningId(null)
+    }
+  }
 
   const orgsById = useMemo(() => new Map(orgs.map((o) => [o.id, o])), [orgs])
   const eventsById = useMemo(() => new Map(events.map((e) => [e.id, e])), [events])
@@ -123,6 +140,7 @@ export default function Standing() {
                   <th className="n">Hours</th>
                   <th>Impact Metric</th>
                   <th className="n">Reported</th>
+                  <th>Proof</th>
                 </tr>
               </thead>
               <tbody>
@@ -135,6 +153,19 @@ export default function Standing() {
                       <td className="n">{String(l.hours)}</td>
                       <td>{org?.impact_metric || '—'}</td>
                       <td className="n">{l.quantity == null ? '' : String(l.quantity)}</td>
+                      <td>
+                        {l.proof_path ? (
+                          <button
+                            className="btn ghost sm"
+                            disabled={openingId === l.id}
+                            onClick={() => viewProof(l.id, l.proof_path)}
+                          >
+                            View
+                          </button>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
                     </tr>
                   )
                 })}

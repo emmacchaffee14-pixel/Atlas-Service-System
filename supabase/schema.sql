@@ -42,8 +42,14 @@ create table if not exists events (
   end_time   time not null,
   capacity   int  not null default 0,            -- 0 = open to the whole cohort
   status     text not null default 'open',
+  admin_reminder_48h_sent boolean not null default false,
+  admin_reminder_24h_sent boolean not null default false,
   constraint events_capacity_sane check (capacity >= 0)
 );
+
+-- Safe to re-run against an already-provisioned events table.
+alter table events add column if not exists admin_reminder_48h_sent boolean not null default false;
+alter table events add column if not exists admin_reminder_24h_sent boolean not null default false;
 
 -- ── People ─────────────────────────────────────────────────────────
 -- roster is the gate: an email must be here before anyone can sign in.
@@ -147,6 +153,8 @@ create table if not exists signups (
   transportation boolean not null default false,
   advocating     boolean not null default false,
   notes          text,
+  reminder_48h_sent boolean not null default false,
+  reminder_24h_sent boolean not null default false,
   created_at     timestamptz not null default now(),
   unique (event_id, member_email)               -- nobody claims two spots
 );
@@ -155,6 +163,8 @@ create table if not exists signups (
 alter table signups add column if not exists member_name text;
 update signups s set member_name = r.full_name
   from roster r where r.email = s.member_email and s.member_name is null;
+alter table signups add column if not exists reminder_48h_sent boolean not null default false;
+alter table signups add column if not exists reminder_24h_sent boolean not null default false;
 
 create table if not exists service_logs (
   id           bigint generated always as identity primary key,
@@ -162,10 +172,20 @@ create table if not exists service_logs (
   member_email text not null references roster(email) on delete cascade,
   hours        numeric not null check (hours > 0 and hours <= 12),
   quantity     numeric check (quantity >= 0),
-  proof_url    text,
+  proof_path   text,                    -- storage.objects key in service-proofs, not a URL
   takeaway     text,
   created_at   timestamptz not null default now()
 );
+
+-- Safe to re-run: renames the old prototype-era URL column exactly once.
+do $$ begin
+  if exists (select 1 from information_schema.columns
+             where table_name = 'service_logs' and column_name = 'proof_url')
+     and not exists (select 1 from information_schema.columns
+             where table_name = 'service_logs' and column_name = 'proof_path') then
+    alter table service_logs rename column proof_url to proof_path;
+  end if;
+end $$;
 
 create table if not exists nominations (
   id           bigint generated always as identity primary key,
@@ -211,6 +231,23 @@ returns boolean language sql stable security definer set search_path = public as
   select coalesce((select r.is_admin from roster r
                    join profiles p on p.email = r.email
                    where p.id = auth.uid()), false)
+$$;
+
+-- Events are stored as a plain date + a plain local time — Athens, GA is
+-- always Eastern, but "Eastern" shifts between EST and EDT across the
+-- year. AT TIME ZONE on a naive timestamp does that conversion correctly
+-- for the specific date, which fixed-offset arithmetic cannot.
+-- send-event-reminders (an Edge Function on a schedule) calls this to
+-- find events sitting near the 48h/24h reminder mark; p_window_minutes
+-- is generous on purpose — the reminder_*_sent / admin_reminder_*_sent
+-- flags are what actually prevent duplicate sends, not this window.
+create or replace function due_events(p_offset_hours int, p_window_minutes int default 30)
+returns setof events language sql stable security definer set search_path = public as $$
+  select e.* from events e
+  where e.status <> 'cancelled'
+    and (e.event_date + e.start_time) at time zone 'America/New_York'
+        between now() + make_interval(hours => p_offset_hours) - make_interval(mins => p_window_minutes)
+            and now() + make_interval(hours => p_offset_hours) + make_interval(mins => p_window_minutes)
 $$;
 
 -- ── Claiming a spot, atomically ────────────────────────────────────
@@ -347,6 +384,38 @@ drop policy if exists noms_review on nominations;
 create policy noms_review on nominations for update to authenticated
   using (is_officer()) with check (is_officer());
 
+-- ── Storage: service log proof photos ───────────────────────────────
+-- Private bucket — no public URLs. A member's file lives under a path
+-- prefixed with their own email (service-proofs/<email>/<...>), and
+-- storage.foldername(name)[1] is that prefix. Members can only reach
+-- their own folder; officers can read every folder, matching CLAUDE.md's
+-- "private bucket, officers-read." Viewing requires a signed URL —
+-- nothing here is servable by a bare object URL.
+insert into storage.buckets (id, name, public)
+values ('service-proofs', 'service-proofs', false)
+on conflict (id) do nothing;
+
+drop policy if exists service_proofs_insert on storage.objects;
+create policy service_proofs_insert on storage.objects for insert to authenticated
+  with check (
+    bucket_id = 'service-proofs'
+    and (storage.foldername(name))[1] = public.me()
+  );
+
+drop policy if exists service_proofs_read on storage.objects;
+create policy service_proofs_read on storage.objects for select to authenticated
+  using (
+    bucket_id = 'service-proofs'
+    and ((storage.foldername(name))[1] = public.me() or public.is_officer())
+  );
+
+drop policy if exists service_proofs_delete on storage.objects;
+create policy service_proofs_delete on storage.objects for delete to authenticated
+  using (
+    bucket_id = 'service-proofs'
+    and (storage.foldername(name))[1] = public.me()
+  );
+
 -- ── Belt and braces: RLS on by default for future tables ───────────
 -- Every table above already has RLS enabled explicitly. This trigger
 -- covers the ones you have not written yet: a table created in `public`
@@ -380,3 +449,39 @@ create event trigger ensure_rls on ddl_command_end
 -- a new table returns nothing until you write a policy, rather than
 -- returning everything. Check Database → Security Advisor after any
 -- schema change.
+
+-- ── Scheduled event reminders ───────────────────────────────────────
+-- Every 30 minutes, ping the send-event-reminders Edge Function. The
+-- function itself does all the real work (finding due events via
+-- due_events() above, emailing, and setting the *_sent flags) — this
+-- job's only purpose is to wake it up on a schedule.
+--
+-- The header below carries the PUBLISHABLE key (sb_publishable_...), which
+-- is safe to store here — it is designed to be public, same as it is in
+-- the browser bundle. The Edge Function's own SUPABASE_SERVICE_ROLE_KEY
+-- (injected by the runtime, never written here) is what actually lets it
+-- read and write the tables; this key only gets the request past
+-- Supabase's gateway.
+create extension if not exists pg_cron with schema extensions;
+create extension if not exists pg_net with schema extensions;
+
+do $$ begin
+  perform cron.unschedule('send-event-reminders');
+exception when others then null;
+end $$;
+
+select cron.schedule(
+  'send-event-reminders',
+  '*/30 * * * *',
+  $$
+  select net.http_post(
+    url := 'https://oldxekiajjcljdbgdvtn.supabase.co/functions/v1/send-event-reminders',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer sb_publishable_zCShAEOBy9eIsfFy0xqSCw_1PhgJq3-',
+      'apikey', 'sb_publishable_zCShAEOBy9eIsfFy0xqSCw_1PhgJq3-'
+    ),
+    body := '{}'::jsonb
+  );
+  $$
+);

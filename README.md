@@ -35,6 +35,30 @@
    Admins call this function from Settings, passing their own session
    token as the `Authorization` bearer — the function checks `is_admin`
    itself before inviting anyone. It is the only way an account gets created.
+8. Storage → the `service-proofs` bucket and its policies are created by
+   `schema.sql` itself (private, members read/write only their own folder,
+   officers read every folder) — nothing to do here by hand.
+9. Deploy the `send-event-reminders` Edge Function
+   (`supabase/functions/send-event-reminders`). A pg_cron job — set up by
+   `schema.sql`, running every 30 minutes — wakes it up; it finds events
+   48/24 hours out and emails everyone signed up, plus
+   `ecc44573@gmail.com`. It needs an email provider:
+   ```bash
+   supabase functions deploy send-event-reminders
+   supabase secrets set RESEND_API_KEY=re_your_key_here
+   supabase secrets set REMINDER_FROM_EMAIL='Atlas Service <onboarding@resend.dev>'  # until atlasuga.com is verified in Resend
+   supabase secrets set APP_SITE_URL=https://service.atlasuga.com   # or your localhost/preview URL while testing
+   ```
+   [resend.com](https://resend.com) has a free tier that covers this
+   easily — sign up, grab an API key from the dashboard, no credit card
+   needed. Sending only works with a `RESEND_API_KEY` secret in place; the
+   `onboarding@resend.dev` sender works immediately with no domain setup,
+   but only delivers to the email address you signed up to Resend with —
+   verify `atlasuga.com` in Resend once you want to send to the whole
+   cohort. `due_events()` in `schema.sql` does the actual "is this event
+   48/24 hours out" math against `America/New_York`, correctly handling
+   the EST/EDT switch; the `*_sent` flag columns on `events` and `signups`
+   are what stop a member or the admin inbox from getting double-emailed.
 
 ## 2. Local
 
