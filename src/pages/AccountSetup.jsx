@@ -4,10 +4,27 @@ import GlobeMark from '../components/GlobeMark.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { supabase } from '../lib/supabaseClient.js'
 
+// The invite link points here with ?token_hash=...&type=invite rather
+// than straight at Supabase's own auto-verifying link — that one
+// consumes the one-time token on a plain GET, which link-preview and
+// security-scanner bots (Outlook Safe Links, iMessage's rich preview
+// fetcher) trigger automatically before the real person ever taps
+// anything. Requiring an explicit click here before calling verifyOtp()
+// means only a real click can spend the token.
+function readInviteParams() {
+  const params = new URLSearchParams(window.location.search)
+  const tokenHash = params.get('token_hash')
+  const type = params.get('type')
+  return tokenHash && type ? { tokenHash, type } : null
+}
+
 export default function AccountSetup() {
   const toast = useToast()
   const navigate = useNavigate()
   const [session, setSession] = useState(undefined) // undefined = still checking
+  const [inviteParams] = useState(readInviteParams)
+  const [verifying, setVerifying] = useState(false)
+  const [verifyError, setVerifyError] = useState(null)
   const [password, setPassword] = useState('')
   const [password2, setPassword2] = useState('')
   const [busy, setBusy] = useState(false)
@@ -19,6 +36,21 @@ export default function AccountSetup() {
     } = supabase.auth.onAuthStateChange((_event, s) => setSession(s))
     return () => subscription.unsubscribe()
   }, [])
+
+  async function confirmInvite() {
+    if (!inviteParams) return
+    setVerifying(true)
+    setVerifyError(null)
+    const { error } = await supabase.auth.verifyOtp({
+      token_hash: inviteParams.tokenHash,
+      type: inviteParams.type,
+    })
+    setVerifying(false)
+    if (error) {
+      setVerifyError(error.message)
+    }
+    // On success, onAuthStateChange fires and session updates on its own.
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -62,7 +94,33 @@ export default function AccountSetup() {
       <div className="term setupcard" style={{ marginTop: 34 }}>
         {session === undefined && <p className="note">Checking your invitation…</p>}
 
-        {session === null && (
+        {session === null && inviteParams && !verifyError && (
+          <>
+            <p>Tap below to confirm this is you before we sign you in.</p>
+            <div className="row" style={{ marginTop: 18 }}>
+              <button className="btn" onClick={confirmInvite} disabled={verifying}>
+                Confirm My Invite
+              </button>
+            </div>
+          </>
+        )}
+
+        {session === null && verifyError && (
+          <>
+            <p>
+              That link didn&rsquo;t work ({verifyError}). It may have already been used, or an
+              email/text app may have opened it automatically before you got the chance — ask an
+              officer to send you a fresh one.
+            </p>
+            <div className="row" style={{ marginTop: 18 }}>
+              <Link className="btn ghost" to="/">
+                Back to Log In
+              </Link>
+            </div>
+          </>
+        )}
+
+        {session === null && !inviteParams && (
           <>
             <p>
               This page opens from the one-time link in your welcome email. If you have not

@@ -12,6 +12,17 @@
 // link without Supabase ever sending anything, so there's no rate limit
 // to hit; the admin copies the link and delivers it themselves.
 //
+// The link we hand back is NOT generateLink's own action_link. That link
+// points straight at Supabase's /auth/v1/verify endpoint, which consumes
+// the one-time token on a plain GET — and link-preview / security-scanner
+// bots (Outlook Safe Links, iMessage's rich-preview fetcher, etc.) issue
+// exactly that GET automatically, before the real person ever taps
+// anything, burning the token and leaving them staring at "this link has
+// expired." Instead we hand back the token_hash and point the link at our
+// own /setup page, which requires an actual click before calling
+// supabase.auth.verifyOtp() — a bot that merely fetches the URL never
+// triggers that click, so it can't consume the token.
+//
 // SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are provided automatically by
 // the Edge Function runtime — nothing to set by hand for those. The service
 // role key never reaches the browser; it exists only in this function.
@@ -105,13 +116,14 @@ Deno.serve(async (req) => {
       email: target.email,
       options: { redirectTo: REDIRECT_TO },
     });
-  const link = linkData?.properties?.action_link;
-  if (linkError || !link) {
+  const tokenHash = linkData?.properties?.hashed_token;
+  if (linkError || !tokenHash) {
     return json(
-      { ok: false, reason: "invite_failed", detail: linkError?.message ?? "no link returned" },
+      { ok: false, reason: "invite_failed", detail: linkError?.message ?? "no token returned" },
       500,
     );
   }
+  const link = `${REDIRECT_TO}?token_hash=${encodeURIComponent(tokenHash)}&type=invite`;
 
   const { error: stampError } = await admin
     .from("roster")
