@@ -136,7 +136,9 @@ export default function Settings() {
         const result = await inviteMember(row.email)
         await refresh()
         if (result?.link && (await copyToClipboard(result.link))) {
-          toast(`Invite link copied — paste it into an email or text to ${row.email}.`)
+          toast(
+            `Invite link copied for ${row.email} — paste it straight to them. Don't open it yourself, it's one-time use.`,
+          )
         } else if (result?.link) {
           toast(`Invite link ready (copy failed): ${result.link}`)
         } else {
@@ -179,7 +181,9 @@ export default function Settings() {
       downloadCsv('atlas-invite-links.csv', [['Name', 'Email', 'Invite Link'], ...links])
     }
     if (links.length === todo.length) {
-      toast(`${links.length} invite link${links.length === 1 ? '' : 's'} downloaded — send each one yourself.`)
+      toast(
+        `${links.length} invite link${links.length === 1 ? '' : 's'} downloaded — send each one as-is, don't open them yourself first.`,
+      )
     } else if (links.length > 0) {
       toast(`${links.length} of ${todo.length} links downloaded, ${todo.length - links.length} failed: ${lastError?.message || 'unknown error'}`)
     } else {
@@ -364,8 +368,9 @@ export default function Settings() {
         <p className="lede">
           The member roster &mdash; admins are managed above, not listed here. Copy Invite Link
           gets a one-time link to paste into an email or text yourself; Supabase never sends
-          anything, so there's no rate limit to hit. Members choose their own password &mdash;
-          nobody on the executive board can see it.
+          anything, so there's no rate limit to hit. Don't open a link yourself to check it
+          &mdash; that uses it up, and the member will see "expired" when they click it. Members
+          choose their own password &mdash; nobody on the executive board can see it.
         </p>
         <div className="formfoot" style={{ marginTop: 0, marginBottom: 16 }}>
           <button className="btn" disabled={bulkBusy} onClick={inviteAllWithoutAccount}>
