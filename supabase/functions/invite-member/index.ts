@@ -110,12 +110,29 @@ Deno.serve(async (req) => {
     return json({ ok: false, reason: "already_active" }, 409);
   }
 
-  const { data: linkData, error: linkError } = await admin.auth.admin
+  // type: "invite" only works for an email with no auth.users row yet.
+  // Anyone who's had a link generated before (any earlier attempt, going
+  // back to before today's fixes) already has one, unconfirmed — Supabase
+  // refuses a second "invite" for them with "already been registered".
+  // A magic link works for an existing-but-unconfirmed user too, and
+  // still confirms their email on verification, so it's the right
+  // fallback for a resend rather than a genuinely first-time invite.
+  let linkType = "invite";
+  let { data: linkData, error: linkError } = await admin.auth.admin
     .generateLink({
       type: "invite",
       email: target.email,
       options: { redirectTo: REDIRECT_TO },
     });
+  if (linkError && /already.*registered/i.test(linkError.message)) {
+    linkType = "magiclink";
+    ({ data: linkData, error: linkError } = await admin.auth.admin
+      .generateLink({
+        type: "magiclink",
+        email: target.email,
+        options: { redirectTo: REDIRECT_TO },
+      }));
+  }
   const tokenHash = linkData?.properties?.hashed_token;
   if (linkError || !tokenHash) {
     return json(
@@ -123,7 +140,7 @@ Deno.serve(async (req) => {
       500,
     );
   }
-  const link = `${REDIRECT_TO}?token_hash=${encodeURIComponent(tokenHash)}&type=invite`;
+  const link = `${REDIRECT_TO}?token_hash=${encodeURIComponent(tokenHash)}&type=${linkType}`;
 
   const { error: stampError } = await admin
     .from("roster")
