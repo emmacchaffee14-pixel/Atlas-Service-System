@@ -101,6 +101,15 @@ create table if not exists profiles (
 -- Only roster emails become profiles. Anyone else who authenticates
 -- gets rejected here rather than silently creating an orphan account.
 -- This is what stops a stray @uga.edu address from self-registering.
+--
+-- Does NOT stamp activated_at. This trigger fires on auth.users INSERT,
+-- which happens the instant an invite link is generated or sent — long
+-- before the person has actually opened it, let alone chosen a password.
+-- Stamping activated_at here made the Accounts table show "Active" (and
+-- swap Copy Invite Link for Send Password Reset) for people who had
+-- never done anything but be invited. mark_activated() below is what
+-- actually marks it, called from the client only after a real password
+-- is set.
 create or replace function handle_new_user()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
@@ -109,9 +118,19 @@ begin
   end if;
   insert into profiles (id, email) values (new.id, lower(new.email))
     on conflict (id) do nothing;
-  update roster set activated_at = coalesce(activated_at, now())
-   where email = lower(new.email);
   return new;
+end $$;
+
+-- Called from AccountSetup.jsx right after supabase.auth.updateUser()
+-- succeeds — the one point that actually means "this person is active,"
+-- as opposed to merely invited. security definer + me() so a brand-new
+-- member (not yet an officer) can stamp their own row despite roster's
+-- write policy otherwise requiring is_officer().
+create or replace function mark_activated()
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  update roster set activated_at = coalesce(activated_at, now())
+   where email = me();
 end $$;
 
 -- Officers read who has and has not set up an account yet. There is no

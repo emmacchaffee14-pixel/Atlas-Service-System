@@ -37,6 +37,11 @@ export default function AccountSetup() {
       toast('Could not set that password. Try again.')
       return
     }
+    // The only point that actually means "active" — stamped here, not by
+    // a trigger on auth.users insert, which fires the instant an invite
+    // link is generated and would mark someone active before they've
+    // done anything but be invited.
+    await supabase.rpc('mark_activated')
     const { data: rosterRow } = await supabase
       .from('roster')
       .select('is_officer')
