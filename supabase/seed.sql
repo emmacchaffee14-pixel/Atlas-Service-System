@@ -26,7 +26,7 @@ insert into orgs (id, name, location, description, impact_metric, givepulse_code
   ('thomas-lay', 'Thomas Lay', '297 Hoyt St, Athens, GA 30601', 'Teach students a business-themed lesson plus a club activity led by Atlas.', 'Kids Taught', null, null, true),
   ('ugarden', 'UGArden', '2510 S Milledge Ave, Athens, GA 30605', 'Volunteer at the UGA garden to promote sustainable growing. Dress in long pants and layers.', 'Plants Impacted', null, null, true),
   ('esp', 'ESP Miracle League', '189 FVW Dr, Watkinsville, GA 30677', 'Have fun with and assist ESP members at the Miracle League baseball game.', 'ESP Members Assisted', 'TBD', null, true),
-  ('ados', 'ADOS Book Donation', 'Stelling Study', 'Donate books to support SWAB (Shop With a Bulldog). At most one hour from this event counts toward the membership requirement.', 'Books Donated', null, null, true),
+  ('ados', 'ADOS Book Donation', 'Stelling Study', 'Donate books to support SWAB (Shop With a Bulldog). Books must be kid-friendly if possible (ages 5-12). At most one hour from this event counts toward the membership requirement.', 'Books Donated', null, null, true),
   ('sga-closet', 'SGA Clothing Closet', '2nd Floor, Tate Student Center', 'Sort professional clothing donations for students.', 'Items Sorted', null, null, false)
   on conflict (id) do update set name = excluded.name,
     location = excluded.location, description = excluded.description,
