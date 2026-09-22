@@ -1,8 +1,16 @@
 // invite-member — the only way an Atlas account gets created.
 //
 // Called by a signed-in admin from Settings. Never called with a bypass
-// or a generated password: this issues a real Supabase invite email with a
-// one-time link, and the member chooses their own password on /setup.
+// or a generated password: this issues a real one-time Supabase invite
+// link, and the member chooses their own password on /setup.
+//
+// This generates the link (admin.auth.admin.generateLink) rather than
+// sending it (admin.auth.admin.inviteUserByEmail) — Supabase's built-in
+// email sender is rate-limited to a handful of sends per hour with no
+// custom SMTP configured, nowhere near enough for onboarding a whole
+// roster. generateLink creates the same underlying account and one-time
+// link without Supabase ever sending anything, so there's no rate limit
+// to hit; the admin copies the link and delivers it themselves.
 //
 // SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are provided automatically by
 // the Edge Function runtime — nothing to set by hand for those. The service
@@ -91,20 +99,18 @@ Deno.serve(async (req) => {
     return json({ ok: false, reason: "already_active" }, 409);
   }
 
-  const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(
-    target.email,
-    { redirectTo: REDIRECT_TO },
-  );
-  if (inviteError) {
-    // Supabase returns a conflict if this email already has an auth user
-    // (e.g. a previous invite that hasn't been used yet — resending is
-    // fine and falls through to re-stamp invited_at below).
-    if (!/already registered|already exists/i.test(inviteError.message)) {
-      return json(
-        { ok: false, reason: "invite_failed", detail: inviteError.message },
-        500,
-      );
-    }
+  const { data: linkData, error: linkError } = await admin.auth.admin
+    .generateLink({
+      type: "invite",
+      email: target.email,
+      options: { redirectTo: REDIRECT_TO },
+    });
+  const link = linkData?.properties?.action_link;
+  if (linkError || !link) {
+    return json(
+      { ok: false, reason: "invite_failed", detail: linkError?.message ?? "no link returned" },
+      500,
+    );
   }
 
   const { error: stampError } = await admin
@@ -118,5 +124,5 @@ Deno.serve(async (req) => {
     );
   }
 
-  return json({ ok: true, email: target.email });
+  return json({ ok: true, email: target.email, link });
 });

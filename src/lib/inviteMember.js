@@ -11,7 +11,11 @@ export async function inviteMember(email) {
     let reason = error.message
     try {
       const body = await error.context.json()
-      reason = body?.reason || reason
+      // `reason` is a short bucket name ("invite_failed", "not_an_admin", …)
+      // — `detail`, when present, is the actual message Supabase Auth
+      // returned (e.g. an email rate-limit error), which is what actually
+      // explains the failure. Prefer it.
+      reason = body?.detail || body?.reason || reason
     } catch {
       // ignore — fall back to error.message
     }

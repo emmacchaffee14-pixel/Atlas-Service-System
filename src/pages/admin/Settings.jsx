@@ -4,12 +4,20 @@ import { useAdminData } from '../../context/AdminDataContext.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import { supabase } from '../../lib/supabaseClient.js'
 import { inviteMember } from '../../lib/inviteMember.js'
+import { downloadCsv } from '../../lib/csv.js'
 import { reqHours, swabCap } from '../../lib/stats.js'
 
 function actionLabel(status) {
-  if (status === 'Active') return 'Send Password Reset'
-  if (status === 'Invited') return 'Resend Invite'
-  return 'Invite'
+  return status === 'Active' ? 'Send Password Reset' : 'Copy Invite Link'
+}
+
+async function copyToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text)
+    return true
+  } catch {
+    return false
+  }
 }
 
 export default function Settings() {
@@ -125,9 +133,15 @@ export default function Settings() {
         if (error) throw error
         toast(`Password reset sent to ${row.email}.`)
       } else {
-        await inviteMember(row.email)
+        const result = await inviteMember(row.email)
         await refresh()
-        toast(`Invite sent to ${row.email}.`)
+        if (result?.link && (await copyToClipboard(result.link))) {
+          toast(`Invite link copied — paste it into an email or text to ${row.email}.`)
+        } else if (result?.link) {
+          toast(`Invite link ready (copy failed): ${result.link}`)
+        } else {
+          toast(`Invite ready for ${row.email}.`)
+        }
       }
     } catch (err) {
       toast(err.message || 'Could not complete that action.')
@@ -136,6 +150,12 @@ export default function Settings() {
     }
   }
 
+  // Supabase's built-in email sender is rate-limited to a handful of sends
+  // an hour with no custom SMTP configured — nowhere near enough for the
+  // whole roster at once. inviteMember() generates the one-time link
+  // without Supabase sending anything, so there's no limit to hit here;
+  // this just collects every link into a CSV for manual delivery instead
+  // of a single clipboard copy, since 65 links can't all live in one paste.
   async function inviteAllWithoutAccount() {
     const todo = memberAccountStatus.filter((x) => x.status === 'Not invited')
     if (!todo.length) {
@@ -143,18 +163,28 @@ export default function Settings() {
       return
     }
     setBulkBusy(true)
-    let n = 0
+    const links = []
+    let lastError = null
     for (const x of todo) {
       try {
-        await inviteMember(x.email)
-        n++
-      } catch {
-        // best effort — keep going for the rest of the roster
+        const result = await inviteMember(x.email)
+        if (result?.link) links.push([x.full_name, x.email, result.link])
+      } catch (err) {
+        lastError = err
       }
     }
     setBulkBusy(false)
     await refresh()
-    toast(`${n} invite${n === 1 ? '' : 's'} sent.`)
+    if (links.length) {
+      downloadCsv('atlas-invite-links.csv', [['Name', 'Email', 'Invite Link'], ...links])
+    }
+    if (links.length === todo.length) {
+      toast(`${links.length} invite link${links.length === 1 ? '' : 's'} downloaded — send each one yourself.`)
+    } else if (links.length > 0) {
+      toast(`${links.length} of ${todo.length} links downloaded, ${todo.length - links.length} failed: ${lastError?.message || 'unknown error'}`)
+    } else {
+      toast(`Could not generate invite links: ${lastError?.message || 'unknown error'}`)
+    }
   }
 
   const activeCount = memberAccountStatus.filter((x) => x.status === 'Active').length
@@ -332,13 +362,14 @@ export default function Settings() {
           </span>
         </div>
         <p className="lede">
-          The member roster &mdash; admins are managed above, not listed here. Invite sends a
-          one-time link by email. Members choose their own password &mdash; nobody on the
-          executive board can see it.
+          The member roster &mdash; admins are managed above, not listed here. Copy Invite Link
+          gets a one-time link to paste into an email or text yourself; Supabase never sends
+          anything, so there's no rate limit to hit. Members choose their own password &mdash;
+          nobody on the executive board can see it.
         </p>
         <div className="formfoot" style={{ marginTop: 0, marginBottom: 16 }}>
           <button className="btn" disabled={bulkBusy} onClick={inviteAllWithoutAccount}>
-            Invite Everyone Without an Account
+            Download All Invite Links
           </button>
         </div>
         <div className="scroll">
