@@ -56,15 +56,24 @@ alter table orgs add column if not exists website text;
 alter table orgs add column if not exists directions text;
 
 create table if not exists events (
-  id         text primary key,
-  org_id     text not null references orgs(id) on delete restrict,
-  event_date date not null,
-  start_time time not null,
-  end_time   time not null,
-  capacity   int  not null default 0,            -- 0 = open to the whole cohort
-  status     text not null default 'open',
+  id             text primary key,
+  org_id         text not null references orgs(id) on delete restrict,
+  event_date     date not null,
+  start_time     time not null,
+  end_time       time not null,
+  capacity       int  not null default 0,            -- 0 = open to the whole cohort
+  status         text not null default 'open',
+  -- Overrides for a partner whose events don't all happen at the same
+  -- place or under the same GivePulse shift — e.g. Campus Kitchen cooks
+  -- out of a different church each time. Null means "use the org's".
+  location       text,
+  givepulse_link text,
   constraint events_capacity_sane check (capacity >= 0)
 );
+
+-- Safe to re-run against an already-provisioned events table.
+alter table events add column if not exists location text;
+alter table events add column if not exists givepulse_link text;
 
 -- Dropped the admin_reminder_48h_sent/24h_sent flags: they only existed to
 -- dedupe the old Resend-based cron reminders, which are gone in favor of

@@ -88,7 +88,9 @@ export default function Signup() {
         <h1>
           Sign up: {org?.name || ev.org_id} — {fmtDate(ev.event_date)}
         </h1>
-        {org?.location && <p>{fmtTimeRange(ev.start_time, ev.end_time)} · {org.location}</p>}
+        {(ev.location || org?.location) && (
+          <p>{fmtTimeRange(ev.start_time, ev.end_time)} · {ev.location || org.location}</p>
+        )}
       </div>
 
       {org?.directions && (

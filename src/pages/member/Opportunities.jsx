@@ -68,7 +68,7 @@ export default function Opportunities() {
                   </h3>
                   <div className="where">
                     <b>{fmtTimeRange(ev.start_time, ev.end_time)}</b>{' '}
-                    {org.location || 'Location to be confirmed'}
+                    {ev.location || org.location || 'Location to be confirmed'}
                   </div>
                   {org.description && <p className="desc">{org.description}</p>}
                   {org.impact_metric && <div className="where">Counts toward: {org.impact_metric}</div>}
@@ -87,12 +87,12 @@ export default function Opportunities() {
                   {org.givepulse_code && (
                     <div className="givep">
                       {org.givepulse_code === 'TBD' ? (
-                        <>A GivePulse registration is required for {org.name} — code coming soon.</>
+                        <strong>A GivePulse registration is required for {org.name} — code coming soon.</strong>
                       ) : (
-                        <>
+                        <strong>
                           Also register with {org.name} on GivePulse:{' '}
-                          {org.givepulse_link ? (
-                            <a href={org.givepulse_link} target="_blank" rel="noopener noreferrer">
+                          {ev.givepulse_link || org.givepulse_link ? (
+                            <a href={ev.givepulse_link || org.givepulse_link} target="_blank" rel="noopener noreferrer">
                               Register on GivePulse
                             </a>
                           ) : (
@@ -100,7 +100,7 @@ export default function Opportunities() {
                           )}
                           <br />
                           Code: {org.givepulse_code}
-                        </>
+                        </strong>
                       )}
                     </div>
                   )}

@@ -50,19 +50,20 @@ Please be prepared for the weather:
 where id = 'ugarden';
 
 -- capacity 0 means open to the whole cohort (the ADOS book drive)
-insert into events (id, org_id, event_date, start_time, end_time, capacity) values
-  ('ck-0928', 'campus-kitchen', '2026-09-28', '17:30', '19:30', 5),
-  ('tl-0928', 'thomas-lay', '2026-09-28', '14:45', '17:00', 5),
-  ('ug-1009', 'ugarden', '2026-10-09', '15:00', '17:00', 5),
-  ('tl-1012', 'thomas-lay', '2026-10-12', '14:45', '17:00', 5),
-  ('ck-1013', 'campus-kitchen', '2026-10-13', '18:00', '20:00', 5),
-  ('ados-1014', 'ados', '2026-10-14', '18:30', '20:00', 0),
-  ('esp-1103', 'esp', '2026-11-03', '18:00', '20:30', 10),
-  ('esp-1105', 'esp', '2026-11-05', '18:00', '20:30', 10),
-  ('ck-1110', 'campus-kitchen', '2026-11-10', '17:30', '19:30', 5)
+insert into events (id, org_id, event_date, start_time, end_time, capacity, location, givepulse_link) values
+  ('ck-0928', 'campus-kitchen', '2026-09-28', '17:30', '19:30', 5, null, null),
+  ('tl-0928', 'thomas-lay', '2026-09-28', '14:45', '17:00', 5, null, null),
+  ('ug-1009', 'ugarden', '2026-10-09', '15:00', '17:00', 5, null, null),
+  ('tl-1012', 'thomas-lay', '2026-10-26', '14:45', '17:00', 5, null, null),
+  ('ck-1013', 'campus-kitchen', '2026-10-13', '18:00', '20:00', 5, 'Covenant Pres', 'https://uga.givepulse.com/shift/6965511'),
+  ('ados-1014', 'ados', '2026-10-14', '18:30', '20:00', 0, null, null),
+  ('esp-1103', 'esp', '2026-11-03', '18:00', '20:30', 10, null, null),
+  ('esp-1105', 'esp', '2026-11-05', '18:00', '20:30', 10, null, null),
+  ('ck-1110', 'campus-kitchen', '2026-11-10', '17:30', '19:30', 5, 'First Pres', 'https://uga.givepulse.com/shift/6944228')
   on conflict (id) do update set org_id = excluded.org_id,
     event_date = excluded.event_date, start_time = excluded.start_time,
-    end_time = excluded.end_time, capacity = excluded.capacity;
+    end_time = excluded.end_time, capacity = excluded.capacity,
+    location = excluded.location, givepulse_link = excluded.givepulse_link;
 
 -- The roster. A member can only sign in if their email is here.
 -- mentor_id stays null until an officer assigns it on the Groups page.
