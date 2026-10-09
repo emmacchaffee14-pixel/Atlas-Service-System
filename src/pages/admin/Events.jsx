@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useAdminData } from '../../context/AdminDataContext.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import { supabase } from '../../lib/supabaseClient.js'
-import { fmtDate } from '../../lib/format.js'
+import { fmtDate, todayISO } from '../../lib/format.js'
 import { computeEventStats, keyOf, mentorName, round } from '../../lib/stats.js'
 
 const NEW_ORG_SENTINEL = '__new__'
@@ -47,6 +47,19 @@ export default function Events() {
       return
     }
     await refresh()
+  }
+
+  async function archiveEvents(ids, archived) {
+    if (!ids.length) return
+    setRowBusy('bulk')
+    const { error } = await supabase.from('events').update({ archived }).in('id', ids)
+    setRowBusy(null)
+    if (error) {
+      toast(archived ? 'Could not archive.' : 'Could not restore.')
+      return
+    }
+    await refresh()
+    toast(archived ? `Archived ${ids.length} event(s).` : 'Event restored.')
   }
 
   async function addEvent(e) {
@@ -112,6 +125,7 @@ export default function Events() {
           const event = eventsById.get(s.event_id)
           return { signup: s, event, org: event ? orgsById.get(event.org_id) : null }
         })
+        .filter((r) => !r.event?.archived)
         .sort((a, b) => (a.event?.event_date || '').localeCompare(b.event?.event_date || '')),
     [signups, eventsById, orgsById],
   )
@@ -125,6 +139,11 @@ export default function Events() {
     () => sortedEvents.map((ev) => ({ ev, stats: computeEventStats(ev, { signups, logs }) })),
     [sortedEvents, signups, logs],
   )
+
+  const today = todayISO()
+  const activeRows = eventRows.filter(({ ev }) => !ev.archived)
+  const archivedRows = eventRows.filter(({ ev }) => ev.archived)
+  const completedIds = activeRows.filter(({ ev }) => ev.event_date < today).map(({ ev }) => ev.id)
 
   const totals = eventRows.reduce(
     (t, { stats }) => ({
@@ -151,7 +170,7 @@ export default function Events() {
     return [...by.entries()].map(([orgId, agg]) => ({ org: orgsById.get(orgId), orgId, agg }))
   }, [eventRows, orgsById])
 
-  const signupSections = eventRows.filter(({ ev }) =>
+  const signupSections = activeRows.filter(({ ev }) =>
     signups.some((s) => s.event_id === ev.id),
   )
 
@@ -217,13 +236,15 @@ export default function Events() {
                 <th className="n">Reported</th>
                 <th className="n">Verified</th>
                 <th className="n">Show Rate</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
-              {eventRows.map(({ ev, stats }) => {
-                const busy = rowBusy === ev.id
+              {activeRows.map(({ ev, stats }) => {
+                const busy = rowBusy === ev.id || rowBusy === 'bulk'
+                const done = ev.event_date < today
                 return (
-                  <tr key={ev.id}>
+                  <tr key={ev.id} className={done ? 'done' : undefined}>
                     <td>
                       <select
                         value={ev.org_id}
@@ -298,11 +319,23 @@ export default function Events() {
                     <td className="n">
                       {stats.claimed ? `${Math.round((stats.logsCount / stats.claimed) * 100)}%` : '—'}
                     </td>
+                    <td>
+                      {done && (
+                        <button
+                          className="btn ghost sm"
+                          type="button"
+                          disabled={busy}
+                          onClick={() => archiveEvents([ev.id], true)}
+                        >
+                          Archive
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 )
               })}
               <tr className="tot">
-                <td>Total</td>
+                <td>{archivedRows.length ? 'Total (incl. archived)' : 'Total'}</td>
                 <td></td>
                 <td></td>
                 <td></td>
@@ -315,6 +348,7 @@ export default function Events() {
                 <td className="n">
                   {totals.claimed ? `${Math.round((totals.logsCount / totals.claimed) * 100)}%` : '—'}
                 </td>
+                <td></td>
               </tr>
             </tbody>
           </table>
@@ -322,7 +356,69 @@ export default function Events() {
         <p className="note">
           Reported adds up every member&rsquo;s answer, which double-counts a shared group total.
           Verified is the per-event average. Editing capacity, time, date or status here takes
-          effect immediately — capacity is still enforced at claim time regardless.
+          effect immediately — capacity is still enforced at claim time regardless. Events whose
+          date has passed are crossed off; archiving one removes it from the member side.
+        </p>
+        {completedIds.length > 0 && (
+          <button
+            className="btn ghost"
+            type="button"
+            disabled={rowBusy === 'bulk'}
+            onClick={() => archiveEvents(completedIds, true)}
+          >
+            Archive {completedIds.length} Completed Event{completedIds.length === 1 ? '' : 's'}
+          </button>
+        )}
+      </section>
+
+      <section>
+        <div className="plate">
+          <h2>Archive</h2>
+          <span>{archivedRows.length} event(s)</span>
+        </div>
+        {archivedRows.length === 0 ? (
+          <p className="empty">Nothing archived yet. Members cannot see archived events.</p>
+        ) : (
+          <div className="scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Partner</th>
+                  <th>Date</th>
+                  <th className="n">Claimed</th>
+                  <th className="n">Logs</th>
+                  <th className="n">Hours</th>
+                  <th className="n">Verified</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...archivedRows].reverse().map(({ ev, stats }) => (
+                  <tr key={ev.id}>
+                    <td>{orgsById.get(ev.org_id)?.name || ev.org_id}</td>
+                    <td>{fmtDate(ev.event_date)}</td>
+                    <td className="n">{stats.claimed}</td>
+                    <td className="n">{stats.logsCount}</td>
+                    <td className="n">{stats.hours}</td>
+                    <td className="n">{stats.verified}</td>
+                    <td>
+                      <button
+                        className="btn ghost sm"
+                        type="button"
+                        disabled={rowBusy === 'bulk'}
+                        onClick={() => archiveEvents([ev.id], false)}
+                      >
+                        Restore
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p className="note">
+          Archived events still count toward impact, partner rollups and each member&rsquo;s hours.
         </p>
       </section>
 

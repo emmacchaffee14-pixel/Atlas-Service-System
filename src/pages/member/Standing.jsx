@@ -7,7 +7,7 @@ import { signedProofUrl } from '../../lib/proofUpload.js'
 import { computeMemberStats, groupOf, keyOf, mentorName, reqHours, round, swabCap } from '../../lib/stats.js'
 
 export default function Standing() {
-  const { orgs, events, signups, logs, mentors, me, settings, myEmail } = useMemberData()
+  const { orgs, allEvents: events, signups, logs, mentors, me, settings, myEmail } = useMemberData()
   const toast = useToast()
   const [openingId, setOpeningId] = useState(null)
 

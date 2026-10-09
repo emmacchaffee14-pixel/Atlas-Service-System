@@ -24,3 +24,23 @@ export function fmtTimeRange(start, end) {
   if (!start || !end) return ''
   return `${fmtTime(start)}–${fmtTime(end)} EST`
 }
+
+function isoOf(d) {
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${mm}-${dd}`
+}
+
+export function todayISO() {
+  return isoOf(new Date())
+}
+
+// Weeks run Monday–Sunday. "This week" starts today (days already gone are
+// not "coming up"); "next week" is the following Monday through Sunday.
+export function weekBounds(now = new Date()) {
+  const dow = (now.getDay() + 6) % 7 // Monday = 0
+  const thisSun = new Date(now.getFullYear(), now.getMonth(), now.getDate() + (6 - dow))
+  const nextMon = new Date(thisSun.getFullYear(), thisSun.getMonth(), thisSun.getDate() + 1)
+  const nextSun = new Date(thisSun.getFullYear(), thisSun.getMonth(), thisSun.getDate() + 7)
+  return { today: isoOf(now), thisEnd: isoOf(thisSun), nextStart: isoOf(nextMon), nextEnd: isoOf(nextSun) }
+}

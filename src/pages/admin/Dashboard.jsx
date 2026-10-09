@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useAdminData } from '../../context/AdminDataContext.js'
+import ComingUp from '../../components/ComingUp.jsx'
 import { fmtDate } from '../../lib/format.js'
 import { computeEventStats, computeMemberStats, reqHours, round, swabCap } from '../../lib/stats.js'
 
@@ -90,6 +91,8 @@ export default function Dashboard() {
         <h1>Cohort Dashboard</h1>
         {settings?.semester && <p>{settings.semester}</p>}
       </div>
+
+      <ComingUp />
 
       <section>
         <div className="plate">

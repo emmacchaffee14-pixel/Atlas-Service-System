@@ -72,9 +72,10 @@ export default function Sidebar({ brandTo, navItems, roleLabel, name, extraLink,
           </button>
         </div>
         <nav className="side-nav">
-          {navItems.map(([path, label]) => (
+          {navItems.map(([path, label, badge]) => (
             <Link key={path} to={path} className={location.pathname === path ? 'on' : ''}>
               {label}
+              {badge > 0 && <span className="navbadge">{badge}</span>}
             </Link>
           ))}
         </nav>

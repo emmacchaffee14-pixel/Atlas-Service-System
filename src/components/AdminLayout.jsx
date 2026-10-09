@@ -12,12 +12,13 @@ const ADMIN_NAV = [
   ['/admin/groups', 'Groups'],
   ['/admin/events', 'Events'],
   ['/admin/contacts', 'Contacts'],
+  ['/admin/messages', 'Messages'],
   ['/admin/nominations', 'Nominations'],
   ['/admin/files', 'Files'],
 ]
 
 async function loadReferenceData() {
-  const [settings, roster, mentors, orgs, events, signups, logs, nominations, contacts, accountStatus] =
+  const [settings, roster, mentors, orgs, events, signups, logs, nominations, contacts, accountStatus, messages] =
     await Promise.all([
       supabase.from('settings').select('*').eq('id', 1).maybeSingle(),
       supabase.from('roster').select('*').order('full_name'),
@@ -29,8 +30,9 @@ async function loadReferenceData() {
       supabase.from('nominations').select('*'),
       supabase.from('contacts').select('*').order('created_at', { ascending: false }),
       supabase.from('account_status').select('*').order('full_name'),
+      supabase.from('messages').select('*').order('created_at'),
     ])
-  for (const r of [settings, roster, mentors, orgs, events, signups, logs, nominations, contacts, accountStatus]) {
+  for (const r of [settings, roster, mentors, orgs, events, signups, logs, nominations, contacts, accountStatus, messages]) {
     if (r.error) throw r.error
   }
   return {
@@ -44,6 +46,7 @@ async function loadReferenceData() {
     nominations: nominations.data ?? [],
     contacts: contacts.data ?? [],
     accountStatus: accountStatus.data ?? [],
+    messages: messages.data ?? [],
   }
 }
 
@@ -140,7 +143,11 @@ export default function AdminLayout() {
     <div className="shell">
       <Sidebar
         brandTo="/admin"
-        navItems={ADMIN_NAV}
+        navItems={ADMIN_NAV.map(([path, label]) =>
+          path === '/admin/messages'
+            ? [path, label, (data?.messages ?? []).filter((m) => m.sender === 'member' && !m.read_at).length]
+            : [path, label],
+        )}
         roleLabel={gate.isAdmin ? 'Admin' : 'Officer'}
         name={gate.fullName}
         extraLink={gate.isAdmin ? { to: '/admin/settings', label: 'Settings' } : null}

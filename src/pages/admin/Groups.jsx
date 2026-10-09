@@ -8,6 +8,10 @@ export default function Groups() {
   const [savingGroup, setSavingGroup] = useState(null)
   const [savingMentor, setSavingMentor] = useState(null)
 
+  // Officers and admins don't get a mentor, so they're out of the
+  // assignment list and the "unassigned" count.
+  const mentees = useMemo(() => roster.filter((r) => !r.is_officer), [roster])
+
   const eventsById = useMemo(() => new Map(events.map((e) => [e.id, e])), [events])
 
   const memberStatsByEmail = useMemo(() => {
@@ -21,7 +25,7 @@ export default function Groups() {
   const mentorRows = useMemo(
     () =>
       mentors.map((m) => {
-        const members = roster.filter((r) => r.mentor_id === m.id)
+        const members = mentees.filter((r) => r.mentor_id === m.id)
         let hrs = 0
         let met = 0
         members.forEach((r) => {
@@ -31,10 +35,10 @@ export default function Groups() {
         })
         return { mentor: m, members, hours: round(hrs), met }
       }),
-    [mentors, roster, memberStatsByEmail],
+    [mentors, mentees, memberStatsByEmail],
   )
 
-  const unassigned = roster.filter((r) => !r.mentor_id).length
+  const unassigned = mentees.filter((r) => !r.mentor_id).length
 
   async function saveGroupName(mentorId, value) {
     setSavingGroup(mentorId)
@@ -122,7 +126,7 @@ export default function Groups() {
               </tr>
             </thead>
             <tbody>
-              {roster.map((r) => (
+              {mentees.map((r) => (
                 <tr key={r.email}>
                   <td>{r.full_name}</td>
                   <td>{r.email}</td>

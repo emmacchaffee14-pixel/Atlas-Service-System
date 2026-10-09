@@ -8,12 +8,13 @@ import { keyOf } from '../lib/stats.js'
 const MEMBER_NAV = [
   ['/member/opportunities', 'Opportunities'],
   ['/member/log', 'Log Service'],
+  ['/member/messages', 'Messages'],
   ['/member/nominate', 'Nominate'],
   ['/member/standing', 'My Standing'],
 ]
 
 async function loadMemberData(email) {
-  const [settings, me, mentors, orgs, events, signups, logs] = await Promise.all([
+  const [settings, me, mentors, orgs, events, signups, logs, messages] = await Promise.all([
     supabase.from('settings').select('*').eq('id', 1).maybeSingle(),
     supabase.from('roster').select('*').eq('email', email).maybeSingle(),
     supabase.from('mentors').select('*').order('name'),
@@ -23,8 +24,9 @@ async function loadMemberData(email) {
     // RLS already scopes this to the caller's own rows unless they're also
     // an officer — filter client-side too so the math is right either way.
     supabase.from('service_logs').select('*'),
+    supabase.from('messages').select('*').order('created_at'),
   ])
-  for (const r of [settings, me, mentors, orgs, events, signups, logs]) {
+  for (const r of [settings, me, mentors, orgs, events, signups, logs, messages]) {
     if (r.error) throw r.error
   }
   return {
@@ -32,8 +34,13 @@ async function loadMemberData(email) {
     me: me.data,
     mentors: mentors.data ?? [],
     orgs: orgs.data ?? [],
-    events: events.data ?? [],
+    // Archived events are hidden from browsing, claiming and logging, but
+    // allEvents keeps them so My Standing can still name past work and apply
+    // the book-drive cap to it.
+    events: (events.data ?? []).filter((e) => !e.archived),
+    allEvents: events.data ?? [],
     signups: signups.data ?? [],
+    messages: messages.data ?? [],
     logs: (logs.data ?? []).filter((l) => keyOf(l.member_email) === keyOf(email)),
   }
 }
@@ -100,7 +107,11 @@ export default function MemberLayout() {
     <div className="shell">
       <Sidebar
         brandTo="/member/opportunities"
-        navItems={MEMBER_NAV}
+        navItems={MEMBER_NAV.map(([path, label]) =>
+          path === '/member/messages'
+            ? [path, label, (data?.messages ?? []).filter((m) => m.sender === 'officer' && !m.read_at).length]
+            : [path, label],
+        )}
         name={data?.me?.full_name || gate.email}
         onSignOut={signOut}
       />

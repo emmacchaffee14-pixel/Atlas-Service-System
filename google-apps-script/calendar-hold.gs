@@ -11,6 +11,9 @@
  * needed, and it costs nothing: this runs on Google's free Apps Script +
  * Gmail quota, not Resend or any other paid sender.
  *
+ * A fourth, `kind: 'message'`, sends a plain "new message" nudge (no
+ * calendar invite) — see sendMessageNotice() below.
+ *
  * Three things call this, distinguished only by what's in the JSON body
  * (there's no "kind" field to branch on — the caller decides everything,
  * including who it goes to):
@@ -57,6 +60,10 @@ function doPost(e) {
     return ContentService.createTextOutput('Bad JSON: ' + err).setMimeType(ContentService.MimeType.TEXT);
   }
 
+  if (body.kind === 'message') {
+    return sendMessageNotice(body, adminEmail);
+  }
+
   var to = body.to || adminEmail;
   var summary = body.summary || 'Atlas Service event';
   var description = body.description || '';
@@ -91,6 +98,38 @@ function doPost(e) {
     attachments: [Utilities.newBlob(ics, 'text/calendar; charset=UTF-8; method=REQUEST', 'invite.ics')],
   });
 
+  return ContentService.createTextOutput('ok').setMimeType(ContentService.MimeType.TEXT);
+}
+
+// "You have a new message" nudge for the portal's Messages page. Sent when
+// body.kind === 'message'. Deliberately carries no message text — the
+// conversation lives in the portal. No `to` means the admin inbox.
+function sendMessageNotice(body, adminEmail) {
+  var to = body.to || adminEmail;
+  var summary = body.summary || 'New message from Atlas Service';
+  var description = body.description || '';
+  var link = body.link || '';
+  var html =
+    '<div style="font-family: Helvetica, Arial, sans-serif; max-width: 480px; margin: 0 auto; ' +
+    'border: 1px solid #d5d9e0; border-radius: 3px; overflow: hidden;">' +
+    '<div style="background: #0f2340; padding: 18px 24px;">' +
+    '<span style="color: #ffffff; font-size: 17px; font-weight: 700; letter-spacing: 0.03em;">Atlas ' +
+    '<span style="font-weight: 400; color: #bfd0e8;">Service</span></span></div>' +
+    '<div style="padding: 24px; color: #111418;">' +
+    '<h1 style="margin: 0 0 12px; font-size: 19px; font-weight: 600;">' + escapeHtml(summary) + '</h1>' +
+    '<p style="margin: 0 0 20px; font-size: 14px; line-height: 1.55;">' + escapeHtml(description) + '</p>' +
+    (link
+      ? '<a href="' + escapeHtml(link) + '" style="display: inline-block; background: #0f2340; color: #ffffff; ' +
+        'padding: 11px 22px; font-size: 13px; letter-spacing: 0.09em; text-decoration: none;">Open Messages</a>'
+      : '') +
+    '</div></div>';
+  MailApp.sendEmail({
+    to: to,
+    name: 'Atlas Service',
+    subject: summary,
+    body: description + (link ? '\n\n' + link : ''),
+    htmlBody: html,
+  });
   return ContentService.createTextOutput('ok').setMimeType(ContentService.MimeType.TEXT);
 }
 

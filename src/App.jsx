@@ -9,12 +9,14 @@ import Events from './pages/admin/Events.jsx'
 import Contacts from './pages/admin/Contacts.jsx'
 import Nominations from './pages/admin/Nominations.jsx'
 import Files from './pages/admin/Files.jsx'
+import AdminMessages from './pages/admin/Messages.jsx'
 import Settings from './pages/admin/Settings.jsx'
 import MemberLayout from './components/MemberLayout.jsx'
 import Opportunities from './pages/member/Opportunities.jsx'
 import Signup from './pages/member/Signup.jsx'
 import LogService from './pages/member/LogService.jsx'
 import Nominate from './pages/member/Nominate.jsx'
+import MemberMessages from './pages/member/Messages.jsx'
 import Standing from './pages/member/Standing.jsx'
 
 export default function App() {
@@ -29,6 +31,7 @@ export default function App() {
         <Route path="events" element={<Events />} />
         <Route path="contacts" element={<Contacts />} />
         <Route path="nominations" element={<Nominations />} />
+        <Route path="messages" element={<AdminMessages />} />
         <Route path="files" element={<Files />} />
         <Route path="settings" element={<Settings />} />
       </Route>
@@ -37,6 +40,7 @@ export default function App() {
         <Route path="opportunities" element={<Opportunities />} />
         <Route path="signup/:eventId" element={<Signup />} />
         <Route path="log" element={<LogService />} />
+        <Route path="messages" element={<MemberMessages />} />
         <Route path="nominate" element={<Nominate />} />
         <Route path="standing" element={<Standing />} />
       </Route>

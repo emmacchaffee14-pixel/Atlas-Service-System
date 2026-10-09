@@ -27,6 +27,7 @@ export default function Members() {
     role: 'member', // officers/admins still serve and still count — just hidden from this list by default
     search: '',
   })
+  const [view, setView] = useState('grouped')
   const [sort, setSort] = useState({ key: 'name', dir: 1 })
 
   const eventsById = useMemo(() => new Map(events.map((e) => [e.id, e])), [events])
@@ -107,6 +108,74 @@ export default function Members() {
       return String(a).localeCompare(String(b)) * dir
     })
   }, [filtered, sort])
+
+  // Grouped view: one block per mentor (alphabetical), anyone without a
+  // mentor last. Rows keep whatever sort the column headers set.
+  const sections = useMemo(() => {
+    const by = new Map()
+    sorted.forEach((r) => {
+      const k = r.member.mentor_id ?? 'none'
+      if (!by.has(k)) by.set(k, [])
+      by.get(k).push(r)
+    })
+    return [...by.entries()]
+      .map(([k, list]) => {
+        const mentor = mentors.find((m) => m.id === k)
+        return {
+          key: String(k),
+          title: mentor ? mentor.name : 'No Mentor Assigned',
+          group: mentor?.group_name || '',
+          list,
+          met: list.filter((r) => r.stats.met).length,
+          unassigned: !mentor,
+        }
+      })
+      .sort((a, b) => a.unassigned - b.unassigned || a.title.localeCompare(b.title))
+  }, [sorted, mentors])
+
+  function renderTable(rows) {
+    return (
+        <div className="scroll">
+      <table>
+        <thead>
+          <tr>
+            {HEADS.map(([key, label, cls]) => (
+              <th
+                key={key}
+                className={[cls, 'sort'].filter(Boolean).join(' ')}
+                onClick={() => toggleSort(key)}
+              >
+                {label}
+                {sort.key === key ? (sort.dir > 0 ? ' ↑' : ' ↓') : ''}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.member.email}>
+              <td>
+                {r.member.full_name}
+                {keyOf(r.member.email) === keyOf(officerEmail) && <span className="note"> (you)</span>}
+              </td>
+              <td>
+                <RoleTag role={r.role} />
+              </td>
+              <td>{r.mentor || '—'}</td>
+              <td>{r.group || '—'}</td>
+              <td className="n">{r.stats.claims}</td>
+              <td className="n">{r.stats.logsCount}</td>
+              <td className="n">{r.stats.total}</td>
+              <td className="n">{r.stats.swab}</td>
+              <td className="n">{r.stats.countable}</td>
+              <td className={r.stats.met ? 'yes' : 'no'}>{r.stats.met ? 'Yes' : 'No'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    )
+  }
 
   function setFilter(key, value) {
     setFilters((f) => ({ ...f, [key]: value }))
@@ -216,45 +285,41 @@ export default function Members() {
             {sorted.length} of {memberCount} members
           </span>
         </div>
-        <div className="scroll">
-          <table>
-            <thead>
-              <tr>
-                {HEADS.map(([key, label, cls]) => (
-                  <th
-                    key={key}
-                    className={[cls, 'sort'].filter(Boolean).join(' ')}
-                    onClick={() => toggleSort(key)}
-                  >
-                    {label}
-                    {sort.key === key ? (sort.dir > 0 ? ' ↑' : ' ↓') : ''}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map((r) => (
-                <tr key={r.member.email}>
-                  <td>
-                    {r.member.full_name}
-                    {keyOf(r.member.email) === keyOf(officerEmail) && <span className="note"> (you)</span>}
-                  </td>
-                  <td>
-                    <RoleTag role={r.role} />
-                  </td>
-                  <td>{r.mentor || '—'}</td>
-                  <td>{r.group || '—'}</td>
-                  <td className="n">{r.stats.claims}</td>
-                  <td className="n">{r.stats.logsCount}</td>
-                  <td className="n">{r.stats.total}</td>
-                  <td className="n">{r.stats.swab}</td>
-                  <td className="n">{r.stats.countable}</td>
-                  <td className={r.stats.met ? 'yes' : 'no'}>{r.stats.met ? 'Yes' : 'No'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="viewtoggle" style={{ marginBottom: 12 }}>
+          <button
+            type="button"
+            className={'btn sm' + (view === 'grouped' ? '' : ' ghost')}
+            onClick={() => setView('grouped')}
+          >
+            By Mentor
+          </button>{' '}
+          <button
+            type="button"
+            className={'btn sm' + (view === 'list' ? '' : ' ghost')}
+            onClick={() => setView('list')}
+          >
+            Full List
+          </button>
         </div>
+        {view === 'list' ? (
+          renderTable(sorted)
+        ) : sections.length === 0 ? (
+          <p className="empty">No members match these filters.</p>
+        ) : (
+          sections.map((sec) => (
+            <div key={sec.key} style={{ marginBottom: 22 }}>
+              <h3>
+                {sec.title}
+                {sec.group && <span className="note"> · {sec.group}</span>}
+                <span className="note">
+                  {' '}
+                  — {sec.list.length} member{sec.list.length === 1 ? '' : 's'}, {sec.met} met
+                </span>
+              </h3>
+              {renderTable(sec.list)}
+            </div>
+          ))
+        )}
         <button className="btn ghost sm" style={{ marginTop: 14 }} onClick={exportCsv}>
           Export This View as CSV
         </button>

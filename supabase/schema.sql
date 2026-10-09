@@ -75,6 +75,12 @@ create table if not exists events (
 alter table events add column if not exists location text;
 alter table events add column if not exists givepulse_link text;
 
+-- Archived events are finished events an officer has put away. Members stop
+-- seeing them (Opportunities, Log Service, claiming); officers keep them in
+-- the Events archive. Rows stay readable so a member's own history and the
+-- book-drive cap math in My Standing keep working.
+alter table events add column if not exists archived boolean not null default false;
+
 -- Dropped the admin_reminder_48h_sent/24h_sent flags: they only existed to
 -- dedupe the old Resend-based cron reminders, which are gone in favor of
 -- an immediate calendar hold per event (see notify_new_event() below).
@@ -336,7 +342,8 @@ begin
     return json_build_object('ok', false, 'reason', 'not_signed_in');
   end if;
 
-  select capacity into v_capacity from events where id = p_event_id for update;
+  select capacity into v_capacity from events
+   where id = p_event_id and not archived for update;
   if not found then
     return json_build_object('ok', false, 'reason', 'no_such_event');
   end if;
@@ -665,3 +672,108 @@ drop trigger if exists on_event_calendar_hold on events;
 create trigger on_event_calendar_hold
   after insert on events
   for each row execute function notify_new_event();
+
+-- ── Messages ───────────────────────────────────────────────────────
+-- One-to-one correspondence between a member and the officers. One thread
+-- per member: member_email is the thread, sender says which side wrote
+-- each message. Members read and write only their own thread; officers
+-- read and write all of them. Rows are deleted after 90 days (below).
+create table if not exists messages (
+  id           bigint generated always as identity primary key,
+  member_email text not null references roster(email) on delete cascade,
+  sender       text not null check (sender in ('member', 'officer')),
+  sender_email text not null,
+  body         text not null check (char_length(btrim(body)) between 1 and 4000),
+  created_at   timestamptz not null default now(),
+  read_at      timestamptz                       -- set when the other side opens the thread
+);
+create index if not exists messages_thread_idx on messages(member_email, created_at);
+create index if not exists messages_created_idx on messages(created_at);
+
+alter table messages enable row level security;
+
+drop policy if exists messages_read on messages;
+create policy messages_read on messages for select to authenticated
+  using (member_email = me() or is_officer());
+
+-- Insert only — nobody edits or deletes a message. Marking read goes
+-- through mark_thread_read() so no one can rewrite a message body.
+drop policy if exists messages_member_send on messages;
+create policy messages_member_send on messages for insert to authenticated
+  with check (sender = 'member' and member_email = me() and sender_email = me());
+drop policy if exists messages_officer_send on messages;
+create policy messages_officer_send on messages for insert to authenticated
+  with check (sender = 'officer' and is_officer() and sender_email = me());
+
+create or replace function mark_thread_read(p_member_email text)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if is_officer() then
+    update messages set read_at = now()
+     where member_email = lower(p_member_email) and sender = 'member' and read_at is null;
+  elsif me() = lower(p_member_email) then
+    update messages set read_at = now()
+     where member_email = me() and sender = 'officer' and read_at is null;
+  end if;
+end $$;
+
+-- Emails a "you have a new message" nudge through the same Apps Script
+-- webhook as the calendar holds. The message text is never in the email —
+-- the portal is the correspondence place. A member's message goes to the
+-- script's ADMIN_EMAIL (no `to`); an officer's goes to the member's
+-- signed-up email. Failures only lose the nudge, never the message.
+create or replace function notify_message()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_webhook text;
+  v_name    text;
+begin
+  select calendar_webhook_url into v_webhook from settings where id = 1;
+  if v_webhook is null or v_webhook = '' then
+    return new;
+  end if;
+  select full_name into v_name from roster where email = new.member_email;
+
+  begin
+    perform net.http_post(
+      url := v_webhook,
+      headers := jsonb_build_object('Content-Type', 'application/json'),
+      body := case when new.sender = 'officer' then
+        jsonb_build_object(
+          'kind', 'message',
+          'to', new.member_email,
+          'summary', 'New message from Atlas Service',
+          'description', 'The Atlas service team sent you a message. Read it and reply in the portal.',
+          'link', 'https://service.atlasuga.com/member/messages')
+      else
+        jsonb_build_object(
+          'kind', 'message',
+          'summary', 'New message from ' || coalesce(v_name, new.member_email),
+          'description', coalesce(v_name, new.member_email) || ' sent a message in the service portal.',
+          'link', 'https://service.atlasuga.com/admin/messages')
+      end
+    );
+  exception when others then
+    raise log 'notify_message: could not queue notification (%)', sqlerrm;
+  end;
+  return new;
+end $$;
+
+drop trigger if exists on_message_notify on messages;
+create trigger on_message_notify
+  after insert on messages
+  for each row execute function notify_message();
+
+-- 90-day retention, swept daily at 08:00 UTC. Needs the pg_cron extension
+-- (Database → Extensions); if it isn't enabled this just skips scheduling.
+do $$ begin
+  create extension if not exists pg_cron;
+  perform cron.unschedule('purge-old-messages');
+exception when others then null;
+end $$;
+do $$ begin
+  perform cron.schedule('purge-old-messages', '0 8 * * *',
+    $q$delete from messages where created_at < now() - interval '90 days'$q$);
+exception when others then
+  raise notice 'pg_cron unavailable — enable it and re-run to schedule the 90-day message purge.';
+end $$;

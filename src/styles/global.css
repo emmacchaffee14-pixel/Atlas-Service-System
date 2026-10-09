@@ -1188,3 +1188,104 @@ input[type='checkbox'] {
     columns: 1;
   }
 }
+
+/* Coming Up (admin dashboard) — a ride request reads in weight and a heavy
+   navy rule, not a color. */
+.cu-group {
+  margin-bottom: 18px;
+}
+.cu-event {
+  border: 1px solid var(--rule, #d6dae0);
+  border-left: 3px solid var(--soft);
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  font-family: var(--cond);
+}
+.cu-event.rides {
+  border-left: 6px solid var(--route);
+}
+.cu-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  align-items: baseline;
+}
+.cu-head span {
+  color: var(--soft);
+  font-size: 13px;
+}
+.cu-rides {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: var(--shade);
+}
+.cu-rides strong {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 12px;
+  color: var(--route);
+}
+.cu-rides ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  font-weight: 600;
+}
+.cu-rides small {
+  font-weight: 400;
+  color: var(--soft);
+}
+
+/* Events page: finished events are struck through until archived. */
+tr.done td {
+  color: var(--soft);
+}
+tr.done td:first-child select,
+tr.done td:first-child {
+  text-decoration: line-through;
+}
+
+/* Messages */
+.navbadge {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: var(--water);
+  color: var(--fill-ink);
+  font-size: 11px;
+  font-weight: 700;
+}
+.thread-log {
+  max-height: 420px;
+  overflow-y: auto;
+  padding: 4px 0 12px;
+}
+.msg {
+  max-width: 78%;
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--rule);
+  font-family: var(--cond);
+}
+.msg small {
+  display: block;
+  color: var(--soft);
+  font-size: 12px;
+}
+.msg p {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.msg.mine {
+  margin-left: auto;
+  background: var(--shade);
+}
+.msg.theirs {
+  border-left: 3px solid var(--water);
+}
+.thread textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+}
