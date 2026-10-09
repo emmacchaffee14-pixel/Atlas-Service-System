@@ -54,8 +54,14 @@ export default function ComingUp() {
               {fmtDate(from)} – {fmtDate(to)}
             </span>
             <span className="cu-counts">
-              {rows.length} event{rows.length === 1 ? '' : 's'}
-              {weekRides > 0 && <strong> · {weekRides} ride{weekRides === 1 ? '' : 's'} needed</strong>}
+              <span>
+                {rows.length} event{rows.length === 1 ? '' : 's'}
+              </span>
+              {weekRides > 0 && (
+                <strong>
+                  {weekRides} ride{weekRides === 1 ? '' : 's'} needed
+                </strong>
+              )}
             </span>
           </div>
           {rows.length === 0 ? (
@@ -95,7 +101,7 @@ export default function ComingUp() {
         )
       })}
       <p className="note">
-        The complete ride list and archive live on <Link to="/admin/events">Events</Link>.
+        Full lists: <Link to="/admin/events?tab=rides">All rides</Link> · <Link to="/admin/events?tab=archive">Archive</Link>
       </p>
     </section>
   )
