@@ -10,7 +10,7 @@ const TABS = [
   ['events', 'Events'],
   ['rides', 'Rides'],
   ['signups', 'Sign-Ups'],
-  ['partners', 'Partners'],
+  ['results', 'Results'],
   ['archive', 'Archive'],
   ['add', '+ Add Event'],
 ]
@@ -193,7 +193,6 @@ export default function Events() {
   const tabCounts = {
     rides: transportationRows.length,
     signups: signupSections.length,
-    partners: partnerRows.length,
     archive: archivedRows.length,
   }
 
@@ -277,16 +276,12 @@ export default function Events() {
               <thead>
                 <tr>
                   <th>Partner</th>
-                  <th>Time</th>
                   <th>Date</th>
+                  <th>Time</th>
+                  <th>Location</th>
+                  <th>Link</th>
+                  <th>Spots</th>
                   <th>Status</th>
-                  <th className="n">Claimed</th>
-                  <th className="n">Cap</th>
-                  <th className="n">Logs</th>
-                  <th className="n">Hours</th>
-                  <th className="n">Reported</th>
-                  <th className="n">Verified</th>
-                  <th className="n">Show Rate</th>
                   <th></th>
                 </tr>
               </thead>
@@ -294,14 +289,14 @@ export default function Events() {
                 {activeRows.map(({ ev, stats }) => {
                   const busy = rowBusy === ev.id || rowBusy === 'bulk'
                   const done = ev.event_date < today
+                  const org = orgsById.get(ev.org_id)
                   return (
-                    <Fragment key={ev.id}>
-                    <tr className={done ? 'done' : undefined}>
+                    <tr key={ev.id} className={done ? 'done' : undefined}>
                       <td>
                         <select
                           value={ev.org_id}
                           disabled={busy}
-                          style={{ minWidth: 170 }}
+                          style={{ minWidth: 150 }}
                           onChange={(e) => updateEvent(ev.id, { org_id: e.target.value })}
                         >
                           {orgs.map((o) => (
@@ -312,64 +307,85 @@ export default function Events() {
                         </select>
                       </td>
                       <td>
+                        <input
+                          type="date"
+                          value={ev.event_date}
+                          disabled={busy}
+                          onChange={(e) => updateEvent(ev.id, { event_date: e.target.value })}
+                        />
+                      </td>
+                      <td>
                         <div style={{ display: 'flex', gap: 6 }}>
                           <input
                             type="time"
                             value={ev.start_time}
                             disabled={busy}
-                            style={{ minWidth: 110 }}
                             onChange={(e) => updateEvent(ev.id, { start_time: e.target.value })}
                           />
                           <input
                             type="time"
                             value={ev.end_time}
                             disabled={busy}
-                            style={{ minWidth: 110 }}
                             onChange={(e) => updateEvent(ev.id, { end_time: e.target.value })}
                           />
                         </div>
                       </td>
                       <td>
                         <input
-                          type="date"
-                          value={ev.event_date}
+                          key={`loc-${ev.location || ''}`}
+                          type="text"
+                          defaultValue={ev.location || ''}
+                          placeholder={org?.location || 'Location'}
                           disabled={busy}
-                          style={{ minWidth: 150 }}
-                          onChange={(e) => updateEvent(ev.id, { event_date: e.target.value })}
+                          style={{ minWidth: 170 }}
+                          onBlur={(e) => {
+                            const next = e.target.value.trim()
+                            if (next !== (ev.location || '')) updateEvent(ev.id, { location: next || null })
+                          }}
                         />
+                      </td>
+                      <td>
+                        <input
+                          key={`link-${ev.givepulse_link || ''}`}
+                          type="url"
+                          defaultValue={ev.givepulse_link || ''}
+                          placeholder="Link"
+                          disabled={busy}
+                          style={{ minWidth: 140 }}
+                          onBlur={(e) => {
+                            const next = e.target.value.trim()
+                            if (next !== (ev.givepulse_link || ''))
+                              updateEvent(ev.id, { givepulse_link: next || null })
+                          }}
+                        />
+                      </td>
+                      <td>
+                        <span className="spots">
+                          {stats.claimed} /{' '}
+                          <input
+                            key={ev.capacity}
+                            type="number"
+                            min="0"
+                            defaultValue={ev.capacity}
+                            disabled={busy}
+                            title="0 = open to the whole cohort"
+                            style={{ width: 64 }}
+                            onBlur={(e) => {
+                              const next = Number(e.target.value) || 0
+                              if (next !== Number(ev.capacity)) updateEvent(ev.id, { capacity: next })
+                            }}
+                          />
+                        </span>
                       </td>
                       <td>
                         <select
                           value={ev.status}
                           disabled={busy}
-                          style={{ minWidth: 110 }}
                           onChange={(e) => updateEvent(ev.id, { status: e.target.value })}
                         >
                           <option value="open">Open</option>
                           <option value="cancelled">Cancelled</option>
                         </select>
-                      </td>
-                      <td className="n">{stats.claimed}</td>
-                      <td className="n">
-                        <input
-                          key={ev.capacity}
-                          type="number"
-                          min="0"
-                          defaultValue={ev.capacity}
-                          disabled={busy}
-                          style={{ width: 72, textAlign: 'right' }}
-                          onBlur={(e) => {
-                            const next = Number(e.target.value) || 0
-                            if (next !== Number(ev.capacity)) updateEvent(ev.id, { capacity: next })
-                          }}
-                        />
-                      </td>
-                      <td className="n">{stats.logsCount}</td>
-                      <td className="n">{stats.hours}</td>
-                      <td className="n">{stats.reported}</td>
-                      <td className="n">{stats.verified}</td>
-                      <td className="n">
-                        {stats.claimed ? `${Math.round((stats.logsCount / stats.claimed) * 100)}%` : '—'}
                       </td>
                       <td>
                         {done && (
@@ -384,68 +400,14 @@ export default function Events() {
                         )}
                       </td>
                     </tr>
-                    <tr className={'subrow' + (done ? ' done' : '')}>
-                      <td colSpan={12}>
-                        <div className="subfields">
-                          <label>
-                            Location
-                            <input
-                              key={`loc-${ev.location || ''}`}
-                              type="text"
-                              defaultValue={ev.location || ''}
-                              placeholder={orgsById.get(ev.org_id)?.location || 'Partner default'}
-                              disabled={busy}
-                              onBlur={(e) => {
-                                const next = e.target.value.trim()
-                                if (next !== (ev.location || '')) updateEvent(ev.id, { location: next || null })
-                              }}
-                            />
-                          </label>
-                          <label>
-                            GivePulse link
-                            <input
-                              key={`gp-${ev.givepulse_link || ''}`}
-                              type="url"
-                              defaultValue={ev.givepulse_link || ''}
-                              placeholder="Partner default"
-                              disabled={busy}
-                              onBlur={(e) => {
-                                const next = e.target.value.trim()
-                                if (next !== (ev.givepulse_link || ''))
-                                  updateEvent(ev.id, { givepulse_link: next || null })
-                              }}
-                            />
-                          </label>
-                        </div>
-                      </td>
-                    </tr>
-                    </Fragment>
                   )
                 })}
-                <tr className="tot">
-                  <td>{archivedRows.length ? 'Total (incl. archived)' : 'Total'}</td>
-                  <td></td>
-                  <td></td>
-                  <td></td>
-                  <td className="n">{totals.claimed}</td>
-                  <td className="n">{totals.capacity}</td>
-                  <td className="n">{totals.logsCount}</td>
-                  <td className="n">{round(totals.hours)}</td>
-                  <td className="n">{totals.reported}</td>
-                  <td className="n">{totals.verified}</td>
-                  <td className="n">
-                    {totals.claimed ? `${Math.round((totals.logsCount / totals.claimed) * 100)}%` : '—'}
-                  </td>
-                  <td></td>
-                </tr>
               </tbody>
             </table>
           </div>
           <p className="note">
-            Reported adds up every member&rsquo;s answer, which double-counts a shared group total.
-            Verified is the per-event average. Editing capacity, time, date or status here takes
-            effect immediately — capacity is still enforced at claim time regardless. Events whose
-            date has passed are crossed off; archiving one removes it from the member side.
+            Changes save as soon as you leave a field. Past events are crossed off — archive them to
+            remove them from the member side. Capacity 0 means open to the whole cohort.
           </p>
           {completedIds.length > 0 && (
             <button
@@ -457,6 +419,61 @@ export default function Events() {
               Archive {completedIds.length} Completed Event{completedIds.length === 1 ? '' : 's'}
             </button>
           )}
+        </section>
+      )}
+      {tab === 'results' && (
+        <section>
+          <div className="plate">
+            <h2>By Event</h2>
+          </div>
+          <div className="scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Partner</th>
+                  <th>Date</th>
+                  <th className="n">Claimed</th>
+                  <th className="n">Logs</th>
+                  <th className="n">Hours</th>
+                  <th className="n">Reported</th>
+                  <th className="n">Verified</th>
+                  <th className="n">Show Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {eventRows.map(({ ev, stats }) => (
+                  <tr key={ev.id}>
+                    <td>{orgsById.get(ev.org_id)?.name || ev.org_id}</td>
+                    <td>{fmtDate(ev.event_date)}</td>
+                    <td className="n">{stats.claimed}</td>
+                    <td className="n">{stats.logsCount}</td>
+                    <td className="n">{stats.hours}</td>
+                    <td className="n">{stats.reported}</td>
+                    <td className="n">{stats.verified}</td>
+                    <td className="n">
+                      {stats.claimed ? `${Math.round((stats.logsCount / stats.claimed) * 100)}%` : '—'}
+                    </td>
+                  </tr>
+                ))}
+                <tr className="tot">
+                  <td>Total</td>
+                  <td></td>
+                  <td className="n">{totals.claimed}</td>
+                  <td className="n">{totals.logsCount}</td>
+                  <td className="n">{round(totals.hours)}</td>
+                  <td className="n">{totals.reported}</td>
+                  <td className="n">{totals.verified}</td>
+                  <td className="n">
+                    {totals.claimed ? `${Math.round((totals.logsCount / totals.claimed) * 100)}%` : '—'}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="note">
+            Reported adds up every member&rsquo;s answer, which double-counts a shared group total.
+            Verified is the per-event average. Archived events are included.
+          </p>
         </section>
       )}
       {tab === 'archive' && (
@@ -642,8 +659,8 @@ export default function Events() {
               </div>
               <div>
                 <label htmlFor="neGp">
-                  GivePulse link
-                  <small>Optional</small>
+                  Link
+                  <small>Optional — if applicable</small>
                 </label>
                 <input
                   id="neGp"
@@ -661,7 +678,7 @@ export default function Events() {
           </form>
         </section>
       )}
-      {tab === 'partners' && (
+      {tab === 'results' && (
         <section>
           <div className="plate">
             <h2>Partners</h2>

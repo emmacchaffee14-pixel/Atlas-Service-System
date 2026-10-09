@@ -2435,3 +2435,92 @@ tbody tr.subrow:hover td {
   letter-spacing: 0;
   text-transform: none;
 }
+
+/* ═══ Flatten: hairlines and whitespace instead of boxed cards ═══ */
+:root,
+:root[data-theme='dark'] {
+  --shadow: none;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --shadow: none;
+  }
+}
+.flag,
+.flag.ok {
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  border-radius: 0;
+  padding: 11px 2px;
+  margin-bottom: 0;
+}
+.flag.ok {
+  color: var(--soft);
+}
+.figs {
+  gap: 10px 36px;
+  grid-template-columns: repeat(auto-fit, minmax(120px, max-content));
+}
+.fig,
+.figs.mini .fig {
+  background: none;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+}
+.fig b {
+  font-size: 28px;
+}
+.nom {
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--rule);
+  border-radius: 0;
+  padding: 16px 0;
+  margin: 0;
+}
+.su-event {
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  border-radius: 0;
+  margin: 0;
+}
+.su-event summary {
+  padding: 12px 2px;
+}
+.su-event .scroll {
+  border-top: 0;
+  margin-bottom: 12px;
+}
+.hero {
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  border-radius: 0;
+  padding: 8px 0 24px;
+}
+.card {
+  background: none;
+}
+.scroll,
+.bars,
+.cal,
+.thread,
+.inbox-list,
+.inbox-pane {
+  border-radius: 8px;
+}
+.linkbtn.small {
+  display: block;
+  margin-top: 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--soft);
+  letter-spacing: 0.04em;
+}
+.spots {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}

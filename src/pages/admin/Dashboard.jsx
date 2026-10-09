@@ -253,7 +253,7 @@ export default function Dashboard() {
           ))
         )}
         {issues.length > visibleIssues.length && (
-          <button type="button" className="linkbtn" onClick={() => saveDismissed([])}>
+          <button type="button" className="linkbtn small" onClick={() => saveDismissed([])}>
             Show {issues.length - visibleIssues.length} dismissed
           </button>
         )}
