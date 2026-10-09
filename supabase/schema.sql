@@ -847,3 +847,23 @@ alter table service_logs add column if not exists status text not null default '
   check (status in ('pending', 'approved', 'declined'));
 alter table service_logs alter column status set default 'pending';
 create index if not exists logs_status_idx on service_logs(status);
+
+-- ── In-app notices ─────────────────────────────────────────────────
+-- seen_at: when the member acknowledged an approve/decline decision on
+-- their log (null = show it to them next login). Existing decisions are
+-- marked seen so nobody gets a pile of old notices.
+do $$ begin
+  if not exists (select 1 from information_schema.columns
+                 where table_name = 'service_logs' and column_name = 'seen_at') then
+    alter table service_logs add column seen_at timestamptz;
+    update service_logs set seen_at = now() where status <> 'pending';
+  end if;
+end $$;
+
+create or replace function mark_logs_seen()
+returns void language sql security definer set search_path = public as $$
+  update service_logs set seen_at = now()
+   where member_email = me() and status <> 'pending' and seen_at is null
+$$;
+revoke execute on function mark_logs_seen() from public, anon;
+grant execute on function mark_logs_seen() to authenticated;

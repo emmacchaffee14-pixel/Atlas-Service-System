@@ -2609,3 +2609,31 @@ tbody tr.subrow:hover td {
     columns: 1;
   }
 }
+
+/* Login notices */
+.notices h3 {
+  margin-bottom: 14px;
+}
+.notice-block {
+  margin-bottom: 18px;
+}
+.notice-block h4 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+.notice-block ul {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+.notice-block li {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.notice-block small {
+  display: block;
+  color: var(--soft);
+}

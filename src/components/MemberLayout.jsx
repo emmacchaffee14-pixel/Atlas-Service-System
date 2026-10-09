@@ -4,6 +4,8 @@ import Sidebar from './Sidebar.jsx'
 import { MemberDataContext } from '../context/MemberDataContext.js'
 import { supabase } from '../lib/supabaseClient.js'
 import { keyOf } from '../lib/stats.js'
+import { fmtDate, todayISO } from '../lib/format.js'
+import MemberNotices from './MemberNotices.jsx'
 
 const MEMBER_NAV = [
   ['/member/opportunities', 'Opportunities'],
@@ -103,12 +105,32 @@ export default function MemberLayout() {
     navigate('/')
   }
 
+  // Reminders: signed up for an event that has already happened, nothing
+  // logged for it. Decisions: approved/declined logs not yet acknowledged.
+  const me = gate.email
+  const today = todayISO()
+  const eventsById = new Map((data?.events ?? []).map((e) => [e.id, e]))
+  const orgName = new Map((data?.orgs ?? []).map((o) => [o.id, o.name]))
+  const label = (eventId) => {
+    const ev = eventsById.get(eventId)
+    return ev ? `${orgName.get(ev.org_id) || ev.org_id} (${fmtDate(ev.event_date)})` : 'an event'
+  }
+  const myLogs = (data?.logs ?? []).filter((l) => keyOf(l.member_email) === keyOf(me))
+  const loggedIds = new Set(myLogs.map((l) => l.event_id))
+  const reminders = (data?.signups ?? [])
+    .filter((s) => keyOf(s.member_email) === keyOf(me))
+    .map((s) => ({ ...s, date: eventsById.get(s.event_id)?.event_date }))
+    .filter((s) => s.date && s.date < today && eventsById.get(s.event_id)?.status !== 'cancelled' && !loggedIds.has(s.event_id))
+  const decisions = myLogs.filter((l) => l.status !== 'pending' && !l.seen_at)
+
   return (
     <div className="shell">
       <Sidebar
         brandTo="/member/opportunities"
         navItems={MEMBER_NAV.map(([path, label]) =>
-          path === '/member/messages'
+          path === '/member/log'
+            ? [path, label, reminders.length]
+            : path === '/member/messages'
             ? [path, label, (data?.messages ?? []).filter((m) => m.sender === 'officer' && !m.read_at).length]
             : [path, label],
         )}
@@ -124,6 +146,7 @@ export default function MemberLayout() {
           {data && (
             <MemberDataContext.Provider value={{ ...data, refresh, myEmail: gate.email }}>
               <Outlet />
+              <MemberNotices decisions={decisions} reminders={reminders} label={label} refresh={refresh} />
             </MemberDataContext.Provider>
           )}
         </div>
