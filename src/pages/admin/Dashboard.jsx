@@ -1,6 +1,5 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useAdminData } from '../../context/AdminDataContext.js'
-import Ring from '../../components/Ring.jsx'
 import ComingUp from '../../components/ComingUp.jsx'
 import { fmtDate } from '../../lib/format.js'
 import { computeEventStats, computeMemberStats, reqHours, round, swabCap } from '../../lib/stats.js'
@@ -83,6 +82,24 @@ export default function Dashboard() {
     [mentors, memberStats],
   )
 
+  // Dismissals are a per-device convenience, keyed by the message text — if
+  // the underlying numbers change the message changes and it comes back.
+  const [dismissed, setDismissed] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('atlas-dismissed-issues') || '[]')
+    } catch {
+      return []
+    }
+  })
+  function saveDismissed(next) {
+    setDismissed(next)
+    try {
+      localStorage.setItem('atlas-dismissed-issues', JSON.stringify(next))
+    } catch {
+      // Not persisting is fine — it just reappears next visit.
+    }
+  }
+
   const issues = []
   if (pendingNoms) issues.push(`${pendingNoms} nomination${pendingNoms === 1 ? '' : 's'} waiting on review.`)
   const noMentor = memberRoster.filter((m) => !m.mentor_id).length
@@ -105,10 +122,15 @@ export default function Dashboard() {
   const overCap = memberStats.filter((r) => r.stats.swab > cap).length
   if (overCap) issues.push(`${overCap} member(s) logged more book-drive hours than the cap allows.`)
   orgs.forEach((o) => {
-    if (o.active !== false && o.givepulse_code === 'TBD') {
+    // A registration link is enough to point members at GivePulse — only
+    // flag a TBD code when there's no link on the partner or any of its events.
+    const hasLink = o.givepulse_link || events.some((e) => e.org_id === o.id && e.givepulse_link)
+    if (o.active !== false && o.givepulse_code === 'TBD' && !hasLink) {
       issues.push(`${o.name} still needs its GivePulse code.`)
     }
   })
+
+  const visibleIssues = issues.filter((i) => !dismissed.includes(i))
 
   return (
     <>
@@ -124,93 +146,61 @@ export default function Dashboard() {
           <h2>Membership Standing</h2>
           <span>{n ? `${n} members` : 'No roster loaded'}</span>
         </div>
-        <div className="hero">
-          <Ring value={met} max={n} big={n ? `${Math.round((met / n) * 100)}%` : '—'} sub="requirement met" />
-          <div className="hero-side">
-            <p className="hero-line">
-              <b>{met}</b> of {n} members have completed {req} service hours.
-            </p>
-            <div className="stackbar" role="img" aria-label="Standing breakdown">
-              {STANDING.map(([key, label]) =>
-                counts[key] ? (
-                  <i key={key} className={`seg ${key}`} style={{ flexGrow: counts[key] }} title={`${label}: ${counts[key]}`} />
-                ) : null,
-              )}
-            </div>
-            <div className="stat-legend">
-              {STANDING.map(([key, label]) => (
-                <span key={key}>
-                  <i className={`seg ${key}`} />
-                  <b>{counts[key]}</b> {label}
-                </span>
-              ))}
-            </div>
-          </div>
+        <p className="hero-line">
+          <b>{met}</b> of {n} have completed {req} service hours
+          {n ? ` (${Math.round((met / n) * 100)}%)` : ''}
+        </p>
+        <div className="stackbar" role="img" aria-label="Standing breakdown">
+          {STANDING.map(([key, label]) =>
+            counts[key] ? (
+              <i key={key} className={`seg ${key}`} style={{ flexGrow: counts[key] }} title={`${label}: ${counts[key]}`} />
+            ) : null,
+          )}
         </div>
-        <details className="mapwrap">
-          <summary>See every member</summary>
-          <div className="muster">
-            {memberStats.map(({ member, stats }) => {
-              const s = stats.met ? 'met' : stats.total > 0 ? 'part' : stats.claims > 0 ? 'signed' : 'none'
-              return (
-                <div
-                  key={member.email}
-                  className="mk"
-                  data-s={s}
-                  title={`${member.full_name} — ${stats.countable} of ${req} hours`}
-                />
-              )
-            })}
-          </div>
-        </details>
-      </section>
-
-      <section>
-        <div className="plate">
-          <h2>Program Totals</h2>
+        <div className="stat-legend">
+          {STANDING.map(([key, label]) => (
+            <span key={key}>
+              <i className={`seg ${key}`} />
+              <b>{counts[key]}</b> {label}
+            </span>
+          ))}
         </div>
-        <div className="figs">
+        <div className="statline">
           {[
             ['Hours logged', totalHours],
             ['Spots claimed', signups.length],
             ['Members who served', served],
             ['Service logs', logs.length],
           ].map(([label, value]) => (
-            <div className="fig" key={label}>
+            <div key={label}>
               <b>{value}</b>
               <span>{label}</span>
             </div>
           ))}
         </div>
+        {mentorProgress.length > 0 && (
+          <details className="mapwrap">
+            <summary>Progress by mentor group</summary>
+            <div className="bars flat">
+              {mentorProgress.map((g) => (
+                <div className="barrow" key={g.id}>
+                  <div className="barname">
+                    <b>{g.name}</b>
+                    {g.group && <small>{g.group}</small>}
+                  </div>
+                  <div className="bartrack" title={`${g.met} of ${g.total} met`}>
+                    <i style={{ width: `${g.total ? (g.met / g.total) * 100 : 0}%` }} />
+                  </div>
+                  <div className="barval">
+                    <b>{g.met}</b>/{g.total}
+                    <small>avg {g.avg} hrs</small>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
       </section>
-
-      {mentorProgress.length > 0 && (
-        <section>
-          <div className="plate">
-            <h2>Progress by Mentor Group</h2>
-            <span>
-              members who met {req} hours · <a href="/admin/groups">Manage groups</a>
-            </span>
-          </div>
-          <div className="bars">
-            {mentorProgress.map((g) => (
-              <div className="barrow" key={g.id}>
-                <div className="barname">
-                  <b>{g.name}</b>
-                  {g.group && <small>{g.group}</small>}
-                </div>
-                <div className="bartrack" title={`${g.met} of ${g.total} met`}>
-                  <i style={{ width: `${g.total ? (g.met / g.total) * 100 : 0}%` }} />
-                </div>
-                <div className="barval">
-                  <b>{g.met}</b>/{g.total}
-                  <small>avg {g.avg} hrs</small>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
 
       <section>
         <div className="plate">
@@ -244,14 +234,28 @@ export default function Dashboard() {
         <div className="plate">
           <h2>Needs Attention</h2>
         </div>
-        {issues.length === 0 ? (
+        {visibleIssues.length === 0 ? (
           <div className="flag ok">Nothing needs attention.</div>
         ) : (
-          issues.map((issue) => (
-            <div className="flag" key={issue}>
-              {issue}
+          visibleIssues.map((issue) => (
+            <div className="flag flag-row" key={issue}>
+              <span>{issue}</span>
+              <button
+                type="button"
+                className="flag-x"
+                aria-label="Dismiss"
+                title="Dismiss"
+                onClick={() => saveDismissed([...dismissed, issue])}
+              >
+                &times;
+              </button>
             </div>
           ))
+        )}
+        {issues.length > visibleIssues.length && (
+          <button type="button" className="linkbtn" onClick={() => saveDismissed([])}>
+            Show {issues.length - visibleIssues.length} dismissed
+          </button>
         )}
       </section>
     </>

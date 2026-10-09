@@ -2295,3 +2295,143 @@ tr.urgent-row td {
   border-radius: 0 0 var(--radius) var(--radius);
   box-shadow: none;
 }
+
+/* Dashboard: simple, flat */
+.cu-group {
+  margin-bottom: 22px;
+}
+.cu-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+.cu-title span {
+  font-family: var(--cond);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--soft);
+  letter-spacing: 0;
+}
+.cu-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--rule);
+}
+.cu-list li {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr) 70px;
+  gap: 4px 16px;
+  align-items: baseline;
+  padding: 10px 2px;
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--cond);
+}
+.cu-date {
+  font-size: 13px;
+  color: var(--soft);
+}
+.cu-what small {
+  margin-left: 10px;
+  color: var(--soft);
+  font-size: 13px;
+}
+.cu-fill {
+  text-align: right;
+  font-size: 13px;
+  color: var(--soft);
+  font-variant-numeric: tabular-nums;
+}
+.cu-ride {
+  grid-column: 2 / -1;
+  font-size: 14px;
+  font-weight: 600;
+}
+.cu-ride .cu-pill {
+  margin: 0 6px 0 0;
+}
+
+.hero-line {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+.hero-line b {
+  font-size: 22px;
+}
+.statline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 40px;
+  margin-top: 26px;
+  padding-top: 18px;
+  border-top: 1px solid var(--rule);
+}
+.statline b {
+  display: block;
+  font-family: var(--serif);
+  font-size: 26px;
+  line-height: 1.1;
+  color: var(--water);
+}
+.statline span {
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+.bars.flat {
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  margin-top: 8px;
+}
+
+.flag-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.flag-x {
+  border: 0;
+  background: none;
+  color: var(--soft);
+  font-size: 22px;
+  line-height: 1;
+  padding: 0 4px;
+  cursor: pointer;
+}
+.flag-x:hover {
+  color: var(--ink);
+}
+tr.subrow td {
+  padding-top: 0;
+  background: var(--base);
+}
+tbody tr.subrow:hover td {
+  background: var(--base);
+}
+.subfields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+.subfields label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+.subfields input {
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}

@@ -269,7 +269,7 @@ function EventCard({ ev, org, claims, myEmail, past, busy, onRelease }) {
         {org.directions && <p className="desc" style={{ whiteSpace: 'pre-line' }}>{org.directions}</p>}
         {org.givepulse_code && (
           <div className="givep">
-            {org.givepulse_code === 'TBD' ? (
+            {org.givepulse_code === 'TBD' && !gpLink ? (
               <strong>A GivePulse registration is required for {org.name} — code coming soon.</strong>
             ) : (
               <strong>
@@ -281,8 +281,12 @@ function EventCard({ ev, org, claims, myEmail, past, busy, onRelease }) {
                 ) : (
                   'Register on GivePulse'
                 )}
-                <br />
-                Code: {org.givepulse_code}
+                {org.givepulse_code !== 'TBD' && (
+                  <>
+                    <br />
+                    Code: {org.givepulse_code}
+                  </>
+                )}
               </strong>
             )}
           </div>

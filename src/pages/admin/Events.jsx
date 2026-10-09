@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAdminData } from '../../context/AdminDataContext.js'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -16,7 +16,7 @@ const TABS = [
 ]
 const TAB_KEYS = TABS.map(([k]) => k)
 const NEW_ORG_SENTINEL = '__new__'
-const NEW_EVENT_INITIAL = { orgId: '', date: '', start: '', end: '', capacity: '0' }
+const NEW_EVENT_INITIAL = { orgId: '', date: '', start: '', end: '', capacity: '0', location: '', givepulse: '' }
 const NEW_ORG_INITIAL = { name: '', location: '', impactMetric: '', website: '' }
 
 function makeEventId(existingEvents, orgId, date) {
@@ -114,6 +114,8 @@ export default function Events() {
       start_time: newEvent.start,
       end_time: newEvent.end,
       capacity: Number(newEvent.capacity) || 0,
+      location: newEvent.location.trim() || null,
+      givepulse_link: newEvent.givepulse.trim() || null,
       status: 'open',
     })
     setAdding(false)
@@ -293,7 +295,8 @@ export default function Events() {
                   const busy = rowBusy === ev.id || rowBusy === 'bulk'
                   const done = ev.event_date < today
                   return (
-                    <tr key={ev.id} className={done ? 'done' : undefined}>
+                    <Fragment key={ev.id}>
+                    <tr className={done ? 'done' : undefined}>
                       <td>
                         <select
                           value={ev.org_id}
@@ -381,6 +384,42 @@ export default function Events() {
                         )}
                       </td>
                     </tr>
+                    <tr className={'subrow' + (done ? ' done' : '')}>
+                      <td colSpan={12}>
+                        <div className="subfields">
+                          <label>
+                            Location
+                            <input
+                              key={`loc-${ev.location || ''}`}
+                              type="text"
+                              defaultValue={ev.location || ''}
+                              placeholder={orgsById.get(ev.org_id)?.location || 'Partner default'}
+                              disabled={busy}
+                              onBlur={(e) => {
+                                const next = e.target.value.trim()
+                                if (next !== (ev.location || '')) updateEvent(ev.id, { location: next || null })
+                              }}
+                            />
+                          </label>
+                          <label>
+                            GivePulse link
+                            <input
+                              key={`gp-${ev.givepulse_link || ''}`}
+                              type="url"
+                              defaultValue={ev.givepulse_link || ''}
+                              placeholder="Partner default"
+                              disabled={busy}
+                              onBlur={(e) => {
+                                const next = e.target.value.trim()
+                                if (next !== (ev.givepulse_link || ''))
+                                  updateEvent(ev.id, { givepulse_link: next || null })
+                              }}
+                            />
+                          </label>
+                        </div>
+                      </td>
+                    </tr>
+                    </Fragment>
                   )
                 })}
                 <tr className="tot">
@@ -587,6 +626,30 @@ export default function Events() {
                   min="0"
                   value={newEvent.capacity}
                   onChange={(e) => setNewEvent((f) => ({ ...f, capacity: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label htmlFor="neLoc">
+                  Location
+                  <small>Optional — overrides the partner&rsquo;s</small>
+                </label>
+                <input
+                  id="neLoc"
+                  type="text"
+                  value={newEvent.location}
+                  onChange={(e) => setNewEvent((f) => ({ ...f, location: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label htmlFor="neGp">
+                  GivePulse link
+                  <small>Optional</small>
+                </label>
+                <input
+                  id="neGp"
+                  type="url"
+                  value={newEvent.givepulse}
+                  onChange={(e) => setNewEvent((f) => ({ ...f, givepulse: e.target.value }))}
                 />
               </div>
             </div>
