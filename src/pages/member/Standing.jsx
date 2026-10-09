@@ -4,6 +4,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { supabase } from '../../lib/supabaseClient.js'
 import { fmtDate, fmtTimeRange } from '../../lib/format.js'
 import { signedProofUrl } from '../../lib/proofUpload.js'
+import Ring from '../../components/Ring.jsx'
 import { computeMemberStats, groupOf, keyOf, mentorName, reqHours, round, swabCap } from '../../lib/stats.js'
 
 export default function Standing() {
@@ -65,13 +66,35 @@ export default function Standing() {
       </div>
 
       <section>
-        <div className="figs">
-          {figs.map(([label, value, warn]) => (
-            <div className={'fig' + (warn ? ' warn' : '')} key={label}>
-              <b>{value}</b>
-              <span>{label}</span>
+        <div className="hero">
+          <Ring
+            value={stats.countable}
+            max={req}
+            big={`${stats.countable}/${req}`}
+            sub="hours counted"
+          />
+          <div className="hero-side">
+            <p className="hero-line">
+              {stats.met ? (
+                <>You&rsquo;re all set for the semester.</>
+              ) : (
+                <>
+                  <b>{Math.max(0, round(req - stats.countable))}</b> more hour
+                  {round(req - stats.countable) === 1 ? '' : 's'} to go.
+                </>
+              )}
+            </p>
+            <div className="figs mini">
+              {figs
+                .filter(([label]) => label !== 'Counting toward requirement')
+                .map(([label, value, warn]) => (
+                  <div className={'fig' + (warn ? ' warn' : '')} key={label}>
+                    <b>{value}</b>
+                    <span>{label}</span>
+                  </div>
+                ))}
             </div>
-          ))}
+          </div>
         </div>
         {stats.met ? (
           <div className="flag ok" style={{ marginTop: 16 }}>

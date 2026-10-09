@@ -30,8 +30,8 @@ export default function ComingUp() {
         return { ev, org: orgsById.get(ev.org_id), claimed: claims.length, rides }
       })
     return [
-      ['This Week', rows.filter((r) => r.ev.event_date <= thisEnd)],
-      ['Next Week', rows.filter((r) => r.ev.event_date >= nextStart)],
+      ['This Week', rows.filter((r) => r.ev.event_date <= thisEnd), today, thisEnd],
+      ['Next Week', rows.filter((r) => r.ev.event_date >= nextStart), nextStart, nextEnd],
     ]
   }, [roster, mentors, orgs, events, signups])
 
@@ -41,11 +41,23 @@ export default function ComingUp() {
     <section>
       <div className="plate">
         <h2>Coming Up</h2>
-        <span>{rideTotal ? `${rideTotal} ride${rideTotal === 1 ? '' : 's'} needed` : 'No rides requested'}</span>
+        <span>{rideTotal ? '' : 'No rides requested'}</span>
       </div>
-      {groups.map(([label, rows]) => (
-        <div key={label} className="cu-group">
-          <h3>{label}</h3>
+      {groups.map(([label, rows, from, to]) => {
+        const weekRides = rows.reduce((m, r) => m + r.rides.length, 0)
+        const urgent = label === 'This Week'
+        return (
+        <div key={label} className={'cu-group' + (urgent ? ' urgent' : '')}>
+          <div className="cu-band">
+            <h3>{label}</h3>
+            <span>
+              {fmtDate(from)} – {fmtDate(to)}
+            </span>
+            <span className="cu-counts">
+              {rows.length} event{rows.length === 1 ? '' : 's'}
+              {weekRides > 0 && <strong> · {weekRides} ride{weekRides === 1 ? '' : 's'} needed</strong>}
+            </span>
+          </div>
           {rows.length === 0 ? (
             <p className="empty">Nothing scheduled.</p>
           ) : (
@@ -55,6 +67,7 @@ export default function ComingUp() {
                 <div key={ev.id} className={`cu-event${rides.length ? ' rides' : ''}`}>
                   <div className="cu-head">
                     <b>{org?.name || ev.org_id}</b>
+                    {rides.length > 0 && <em className="cu-pill">Needs ride ×{rides.length}</em>}
                     <span>
                       {fmtDate(ev.event_date)} · {fmtTimeRange(ev.start_time, ev.end_time)}
                     </span>
@@ -79,9 +92,10 @@ export default function ComingUp() {
             })
           )}
         </div>
-      ))}
+        )
+      })}
       <p className="note">
-        Full ride list and the archive live on <Link to="/admin/events">Events</Link>.
+        The complete ride list and archive live on <Link to="/admin/events">Events</Link>.
       </p>
     </section>
   )

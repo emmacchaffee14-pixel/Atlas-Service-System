@@ -133,13 +133,14 @@ export default function Members() {
       .sort((a, b) => a.unassigned - b.unassigned || a.title.localeCompare(b.title))
   }, [sorted, mentors])
 
-  function renderTable(rows) {
+  function renderTable(rows, showMentor = true) {
+    const heads = showMentor ? HEADS : HEADS.filter(([key]) => key !== 'mentor' && key !== 'group')
     return (
         <div className="scroll">
       <table>
         <thead>
           <tr>
-            {HEADS.map(([key, label, cls]) => (
+            {heads.map(([key, label, cls]) => (
               <th
                 key={key}
                 className={[cls, 'sort'].filter(Boolean).join(' ')}
@@ -161,8 +162,8 @@ export default function Members() {
               <td>
                 <RoleTag role={r.role} />
               </td>
-              <td>{r.mentor || '—'}</td>
-              <td>{r.group || '—'}</td>
+              {showMentor && <td>{r.mentor || '—'}</td>}
+              {showMentor && <td>{r.group || '—'}</td>}
               <td className="n">{r.stats.claims}</td>
               <td className="n">{r.stats.logsCount}</td>
               <td className="n">{r.stats.total}</td>
@@ -316,7 +317,7 @@ export default function Members() {
                   — {sec.list.length} member{sec.list.length === 1 ? '' : 's'}, {sec.met} met
                 </span>
               </h3>
-              {renderTable(sec.list)}
+              {renderTable(sec.list, false)}
             </div>
           ))
         )}

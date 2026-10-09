@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useAdminData } from '../../context/AdminDataContext.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import { supabase } from '../../lib/supabaseClient.js'
-import { fmtDate, todayISO } from '../../lib/format.js'
+import { fmtDate, todayISO, weekBounds } from '../../lib/format.js'
 import { computeEventStats, keyOf, mentorName, round } from '../../lib/stats.js'
 
 const NEW_ORG_SENTINEL = '__new__'
@@ -31,6 +31,7 @@ function makeOrgId(existingOrgs, name) {
 }
 
 export default function Events() {
+  const weekEnd = weekBounds().thisEnd
   const { roster, mentors, orgs, events, signups, logs, refresh } = useAdminData()
   const toast = useToast()
   const [rowBusy, setRowBusy] = useState(null)
@@ -125,7 +126,7 @@ export default function Events() {
           const event = eventsById.get(s.event_id)
           return { signup: s, event, org: event ? orgsById.get(event.org_id) : null }
         })
-        .filter((r) => !r.event?.archived)
+        .filter((r) => !r.event?.archived && r.event && r.event.event_date >= todayISO())
         .sort((a, b) => (a.event?.event_date || '').localeCompare(b.event?.event_date || '')),
     [signups, eventsById, orgsById],
   )
@@ -184,7 +185,7 @@ export default function Events() {
       <section>
         <div className="plate">
           <h2>Needs Transportation</h2>
-          <span>{transportationRows.length} member(s)</span>
+          <span>{transportationRows.length} upcoming ride{transportationRows.length === 1 ? '' : 's'}</span>
         </div>
         {transportationRows.length === 0 ? (
           <p className="empty">Nobody has asked for a ride yet.</p>
@@ -202,10 +203,13 @@ export default function Events() {
               </thead>
               <tbody>
                 {transportationRows.map(({ signup, event, org }) => (
-                  <tr key={signup.id}>
+                  <tr key={signup.id} className={event && event.event_date <= weekEnd ? 'urgent-row' : undefined}>
                     <td>{rosterByEmail.get(keyOf(signup.member_email))?.full_name || signup.member_email}</td>
                     <td>{org?.name || event?.org_id || '—'}</td>
-                    <td>{event ? fmtDate(event.event_date) : '—'}</td>
+                    <td>
+                      {event ? fmtDate(event.event_date) : '—'}
+                      {event && event.event_date <= weekEnd && <em className="cu-pill">This week</em>}
+                    </td>
                     <td>{mentorName(signup.mentor_id, mentors) || '—'}</td>
                     <td className="wrapok">{signup.notes || '—'}</td>
                   </tr>
@@ -214,10 +218,6 @@ export default function Events() {
             </table>
           </div>
         )}
-        <p className="note">
-          A calendar hold goes out automatically the moment someone checks &ldquo;yes&rdquo; for
-          transportation while claiming a spot — see Settings for the alert webhook.
-        </p>
       </section>
 
       <section>
@@ -605,7 +605,6 @@ export default function Events() {
                     <tr>
                       <th>Member</th>
                       <th>Mentor</th>
-                      <th>Transportation</th>
                       <th className="wrapok">Notes</th>
                     </tr>
                   </thead>
@@ -614,9 +613,11 @@ export default function Events() {
                       .filter((s) => s.event_id === ev.id)
                       .map((s) => (
                         <tr key={s.id}>
-                          <td>{rosterByEmail.get(keyOf(s.member_email))?.full_name || s.member_email}</td>
+                          <td>
+                            {rosterByEmail.get(keyOf(s.member_email))?.full_name || s.member_email}
+                            {s.transportation && <em className="cu-pill">Needs ride</em>}
+                          </td>
                           <td>{mentorName(s.mentor_id, mentors) || '—'}</td>
-                          <td>{s.transportation ? 'Yes' : 'No'}</td>
                           <td className="wrapok">{s.notes || '—'}</td>
                         </tr>
                       ))}
