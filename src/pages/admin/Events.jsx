@@ -647,11 +647,19 @@ export default function Events() {
           {signupSections.length === 0 ? (
             <p className="empty">No spots claimed yet.</p>
           ) : (
-            signupSections.map(({ ev }) => (
-              <div key={ev.id} style={{ marginBottom: 16 }}>
-                <h3>
-                  {orgsById.get(ev.org_id)?.name || ev.org_id} {'—'} {fmtDate(ev.event_date)}
-                </h3>
+            signupSections.map(({ ev }) => {
+              const list = signups.filter((s) => s.event_id === ev.id)
+              const rides = list.filter((s) => s.transportation).length
+              return (
+              <details key={ev.id} className="su-event">
+                <summary>
+                  <b>{orgsById.get(ev.org_id)?.name || ev.org_id}</b>
+                  <span>{fmtDate(ev.event_date)}</span>
+                  <span className="su-count">
+                    {list.length} signed up
+                    {rides > 0 && <em className="cu-pill">{rides} need{rides === 1 ? 's' : ''} ride</em>}
+                  </span>
+                </summary>
                 <div className="scroll">
                   <table>
                     <thead>
@@ -677,8 +685,9 @@ export default function Events() {
                     </tbody>
                   </table>
                 </div>
-              </div>
-            ))
+              </details>
+              )
+            })
           )}
         </section>
       )}
