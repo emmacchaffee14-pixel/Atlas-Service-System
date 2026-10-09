@@ -10,7 +10,7 @@ create table if not exists settings (
   hour_requirement numeric not null default 3,
   swab_cap         numeric not null default 1,   -- max ADOS hours that count
   semester         text    not null default 'Fall 2026',
-  -- Google Apps Script Web App URL (google-apps-script/calendar-hold.gs)
+  -- Google Apps Script Web App URL (rerangoogle-apps-script/calendar-hold.gs)
   -- that turns a signup, a transportation request, or a new event into a
   -- calendar invite instead of an email through a paid provider. Blank =
   -- nothing sent (fails silently, not loudly — see notify_signup() and
@@ -442,7 +442,7 @@ create policy logs_read on service_logs for select to authenticated
   using (member_email = me() or is_officer());
 drop policy if exists logs_insert on service_logs;
 create policy logs_insert on service_logs for insert to authenticated
-  with check (member_email = me());
+  with check (member_email = me() and status = 'pending');
 drop policy if exists logs_admin on service_logs;
 create policy logs_admin on service_logs for all to authenticated
   using (is_officer()) with check (is_officer());
@@ -836,3 +836,14 @@ begin
 end $$;
 revoke execute on function assign_members(text, text[]) from public, anon;
 grant execute on function assign_members(text, text[]) to authenticated;
+
+-- ── Service log approval ───────────────────────────────────────────
+-- A log is 'pending' until an officer approves it; only approved logs
+-- count toward hours, impact and standing. Rows that already existed when
+-- this was added are grandfathered in as approved. Members can only insert
+-- pending rows (see logs_insert), and have no update policy, so they can't
+-- approve their own.
+alter table service_logs add column if not exists status text not null default 'approved'
+  check (status in ('pending', 'approved', 'declined'));
+alter table service_logs alter column status set default 'pending';
+create index if not exists logs_status_idx on service_logs(status);

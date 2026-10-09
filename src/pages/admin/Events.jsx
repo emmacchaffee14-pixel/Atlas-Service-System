@@ -184,6 +184,19 @@ export default function Events() {
     if (newEvent.nominationId || assigned) setTab('events')
   }
 
+  async function removeSignup(signup, name, orgName) {
+    if (!window.confirm(`Remove ${name} from ${orgName}? They'll be taken off the list and can claim again if it's public.`)) return
+    setRowBusy('bulk')
+    const { error } = await supabase.from('signups').delete().eq('id', signup.id)
+    setRowBusy(null)
+    if (error) {
+      toast('Could not remove that member.')
+      return
+    }
+    await refresh()
+    toast(`${name} removed.`)
+  }
+
   async function assignToExisting() {
     if (!assignFor || !assignPick.length) return
     setRowBusy('bulk')
@@ -883,6 +896,7 @@ export default function Events() {
                         <th>Member</th>
                         <th>Mentor</th>
                         <th className="wrapok">Notes</th>
+                        <th></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -896,6 +910,22 @@ export default function Events() {
                             </td>
                             <td>{mentorName(s.mentor_id, mentors) || '—'}</td>
                             <td className="wrapok">{s.notes || '—'}</td>
+                            <td>
+                              <button
+                                type="button"
+                                className="btn warn sm"
+                                disabled={rowBusy === 'bulk'}
+                                onClick={() =>
+                                  removeSignup(
+                                    s,
+                                    rosterByEmail.get(keyOf(s.member_email))?.full_name || s.member_email,
+                                    orgsById.get(ev.org_id)?.name || ev.org_id,
+                                  )
+                                }
+                              >
+                                Remove
+                              </button>
+                            </td>
                           </tr>
                         ))}
                     </tbody>

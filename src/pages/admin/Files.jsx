@@ -7,7 +7,7 @@ import { signedProofUrl } from '../../lib/proofUpload.js'
 import { keyOf } from '../../lib/stats.js'
 
 export default function Files() {
-  const { roster, orgs, events, logs } = useAdminData()
+  const { roster, orgs, events, allLogs: logs } = useAdminData()
   const toast = useToast()
   const [filters, setFilters] = useState({ partner: '', has: 'proof', search: '' })
   const [openingId, setOpeningId] = useState(null)

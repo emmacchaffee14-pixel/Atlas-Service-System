@@ -78,7 +78,7 @@ export default function LogService() {
       return
     }
     await refresh()
-    toast('Service log filed. Your hours are counted.')
+    toast('Service log submitted. Your hours count once an officer approves it.')
     navigate('/member/standing')
   }
 
@@ -87,8 +87,7 @@ export default function LogService() {
       <div className="pagehead">
         <h1>Log Your Service</h1>
         <p>
-          File this after you serve. It is the only thing that credits your hours, and every
-          cohort impact number is built from it.
+          File this after you serve. An officer reviews it, and your hours count once it is approved.
         </p>
       </div>
 

@@ -12,7 +12,7 @@ const STANDING = [
 ]
 
 export default function Dashboard() {
-  const { settings, roster, mentors, orgs, events, signups, logs, nominations } = useAdminData()
+  const { settings, roster, mentors, orgs, events, signups, logs, allLogs, nominations } = useAdminData()
 
   const eventsById = useMemo(() => new Map(events.map((e) => [e.id, e])), [events])
 
@@ -101,6 +101,8 @@ export default function Dashboard() {
   }
 
   const issues = []
+  const pendingLogs = allLogs.filter((l) => l.status === 'pending').length
+  if (pendingLogs) issues.push(`${pendingLogs} service log${pendingLogs === 1 ? '' : 's'} waiting for approval.`)
   if (pendingNoms) issues.push(`${pendingNoms} nomination${pendingNoms === 1 ? '' : 's'} waiting on review.`)
   const noMentor = memberRoster.filter((m) => !m.mentor_id).length
   if (noMentor) {

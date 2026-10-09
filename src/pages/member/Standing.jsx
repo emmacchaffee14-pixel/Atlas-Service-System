@@ -27,8 +27,15 @@ export default function Standing() {
   const orgsById = useMemo(() => new Map(orgs.map((o) => [o.id, o])), [orgs])
   const eventsById = useMemo(() => new Map(events.map((e) => [e.id, e])), [events])
 
+  // Only approved logs count; pending ones are shown but not credited.
   const stats = useMemo(
-    () => computeMemberStats(myEmail, { logs, signups, eventsById, settings }),
+    () =>
+      computeMemberStats(myEmail, {
+        logs: logs.filter((l) => l.status === 'approved'),
+        signups,
+        eventsById,
+        settings,
+      }),
     [myEmail, logs, signups, eventsById, settings],
   )
   const req = reqHours(settings)
@@ -43,8 +50,14 @@ export default function Standing() {
     [logs, myEmail],
   )
 
+  const pendingHours = round(
+    logs
+      .filter((l) => keyOf(l.member_email) === keyOf(myEmail) && l.status === 'pending')
+      .reduce((t, l) => t + (Number(l.hours) || 0), 0),
+  )
   const figs = [
-    ['Hours logged', stats.total, false],
+    ['Hours approved', stats.total, false],
+    ...(pendingHours ? [['Awaiting approval', pendingHours, false]] : []),
     ['Counting toward requirement', stats.countable, false],
     ['Still needed', Math.max(0, round(req - stats.countable)), stats.countable < req],
     ['Upcoming spots claimed', stats.claims, false],
@@ -164,6 +177,7 @@ export default function Standing() {
                   <th>Impact Metric</th>
                   <th className="n">Reported</th>
                   <th>Proof</th>
+                  <th>Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -188,6 +202,11 @@ export default function Standing() {
                         ) : (
                           '—'
                         )}
+                      </td>
+                      <td>
+                        <span className={'tag' + (l.status === 'approved' ? ' ok' : l.status === 'declined' ? ' no' : '')}>
+                          {l.status === 'approved' ? 'Approved' : l.status === 'declined' ? 'Declined' : 'Pending'}
+                        </span>
                       </td>
                     </tr>
                   )

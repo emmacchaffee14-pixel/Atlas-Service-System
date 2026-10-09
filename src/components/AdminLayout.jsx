@@ -11,6 +11,7 @@ const ADMIN_NAV = [
   ['/admin/members', 'Members'],
   ['/admin/groups', 'Groups'],
   ['/admin/events', 'Events'],
+  ['/admin/logs', 'Service Logs'],
   ['/admin/contacts', 'Contacts'],
   ['/admin/messages', 'Messages'],
   ['/admin/nominations', 'Nominations'],
@@ -42,7 +43,9 @@ async function loadReferenceData() {
     orgs: orgs.data ?? [],
     events: events.data ?? [],
     signups: signups.data ?? [],
-    logs: logs.data ?? [],
+    // Only approved logs count everywhere; allLogs feeds the review queue and Files.
+    logs: (logs.data ?? []).filter((l) => l.status === 'approved'),
+    allLogs: logs.data ?? [],
     nominations: nominations.data ?? [],
     contacts: contacts.data ?? [],
     accountStatus: accountStatus.data ?? [],
@@ -143,11 +146,15 @@ export default function AdminLayout() {
     <div className="shell">
       <Sidebar
         brandTo="/admin"
-        navItems={ADMIN_NAV.map(([path, label]) =>
-          path === '/admin/messages'
-            ? [path, label, (data?.messages ?? []).filter((m) => m.sender === 'member' && !m.read_at).length]
-            : [path, label],
-        )}
+        navItems={ADMIN_NAV.map(([path, label]) => {
+          if (path === '/admin/messages') {
+            return [path, label, (data?.messages ?? []).filter((m) => m.sender === 'member' && !m.read_at).length]
+          }
+          if (path === '/admin/logs') {
+            return [path, label, (data?.allLogs ?? []).filter((l) => l.status === 'pending').length]
+          }
+          return [path, label]
+        })}
         roleLabel={gate.isAdmin ? 'Admin' : 'Officer'}
         name={gate.fullName}
         extraLink={gate.isAdmin ? { to: '/admin/settings', label: 'Settings' } : null}

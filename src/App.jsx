@@ -6,6 +6,7 @@ import Dashboard from './pages/admin/Dashboard.jsx'
 import Members from './pages/admin/Members.jsx'
 import Groups from './pages/admin/Groups.jsx'
 import Events from './pages/admin/Events.jsx'
+import ServiceLogs from './pages/admin/ServiceLogs.jsx'
 import Contacts from './pages/admin/Contacts.jsx'
 import Nominations from './pages/admin/Nominations.jsx'
 import Files from './pages/admin/Files.jsx'
@@ -29,6 +30,7 @@ export default function App() {
         <Route path="members" element={<Members />} />
         <Route path="groups" element={<Groups />} />
         <Route path="events" element={<Events />} />
+        <Route path="logs" element={<ServiceLogs />} />
         <Route path="contacts" element={<Contacts />} />
         <Route path="nominations" element={<Nominations />} />
         <Route path="messages" element={<AdminMessages />} />
