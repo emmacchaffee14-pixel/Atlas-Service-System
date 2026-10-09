@@ -2524,3 +2524,88 @@ tbody tr.subrow:hover td {
   gap: 6px;
   white-space: nowrap;
 }
+
+/* Assign members + visibility */
+.vis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin: 22px 0 6px;
+}
+.vis-opt {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.vis-opt:has(input:checked) {
+  border-color: var(--water);
+}
+.vis-opt small {
+  display: block;
+  color: var(--soft);
+  font-size: 13px;
+}
+.assign-title {
+  margin: 22px 0 8px;
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.assign-tools {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.assign-count {
+  font-size: 13px;
+  color: var(--soft);
+  white-space: nowrap;
+}
+.linkbtn.inline {
+  display: inline;
+  margin: 0 0 0 8px;
+}
+.assign-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 12px;
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  columns: 2;
+  column-gap: 24px;
+}
+.assign-list li {
+  break-inside: avoid;
+  padding: 3px 0;
+}
+.assign-list label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  cursor: pointer;
+  font-size: 14px;
+}
+.assign-list small {
+  color: var(--soft);
+}
+.access {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+@media (max-width: 660px) {
+  .assign-tools {
+    grid-template-columns: 1fr;
+  }
+  .assign-list {
+    columns: 1;
+  }
+}

@@ -1,5 +1,6 @@
-import { Fragment, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import AssignMembers from '../../components/AssignMembers.jsx'
 import { useAdminData } from '../../context/AdminDataContext.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import { supabase } from '../../lib/supabaseClient.js'
@@ -16,7 +17,7 @@ const TABS = [
 ]
 const TAB_KEYS = TABS.map(([k]) => k)
 const NEW_ORG_SENTINEL = '__new__'
-const NEW_EVENT_INITIAL = { orgId: '', date: '', start: '', end: '', capacity: '0', location: '', givepulse: '' }
+const NEW_EVENT_INITIAL = { orgId: '', date: '', start: '', end: '', capacity: '0', location: '', givepulse: '', isPublic: true, assignees: [], nominationId: null }
 const NEW_ORG_INITIAL = { name: '', location: '', impactMetric: '', website: '' }
 
 function makeEventId(existingEvents, orgId, date) {
@@ -45,7 +46,39 @@ export default function Events() {
   const [params, setParams] = useSearchParams()
   const tab = TAB_KEYS.includes(params.get('tab')) ? params.get('tab') : 'events'
   const setTab = (key) => setParams(key === 'events' ? {} : { tab: key }, { replace: true })
-  const { roster, mentors, orgs, events, signups, logs, refresh } = useAdminData()
+  const nominationId = params.get('nomination')
+
+  // Arriving from Approve on a nomination: prefill the form once, as a
+  // private event with a new partner, so nothing goes public until chosen.
+  useEffect(() => {
+    if (tab !== 'add' || !nominationId) return
+    const n = nominations.find((x) => String(x.id) === nominationId)
+    if (!n) return
+    setNewEvent((cur) => {
+      if (String(cur.nominationId) === nominationId) return cur
+      const start = String(n.event_time || '').slice(0, 5)
+      let end = ''
+      if (start) {
+        const [h, m] = start.split(':').map(Number)
+        end = `${String((h + 2) % 24).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+      }
+      return {
+        ...NEW_EVENT_INITIAL,
+        orgId: NEW_ORG_SENTINEL,
+        date: n.event_date || '',
+        start,
+        end,
+        capacity: '0',
+        isPublic: false,
+        assignees: [keyOf(n.member_email)],
+        nominationId: n.id,
+      }
+    })
+    setNewOrg({ name: n.org_name || '', location: n.address || '', impactMetric: '', website: n.website || '' })
+  }, [tab, nominationId, nominations])
+  const { roster, mentors, orgs, events, signups, logs, nominations, refresh } = useAdminData()
+  const [assignFor, setAssignFor] = useState(null) // event being assigned to, from the table
+  const [assignPick, setAssignPick] = useState([])
   const toast = useToast()
   const [rowBusy, setRowBusy] = useState(null)
   const [newEvent, setNewEvent] = useState(NEW_EVENT_INITIAL)
@@ -116,17 +149,56 @@ export default function Events() {
       capacity: Number(newEvent.capacity) || 0,
       location: newEvent.location.trim() || null,
       givepulse_link: newEvent.givepulse.trim() || null,
+      is_public: newEvent.isPublic,
       status: 'open',
     })
-    setAdding(false)
     if (error) {
+      setAdding(false)
       toast('Could not add that event.')
       return
     }
+    let assigned = 0
+    if (newEvent.assignees.length) {
+      const { data, error: assignError } = await supabase.rpc('assign_members', {
+        p_event_id: id,
+        p_emails: newEvent.assignees,
+      })
+      if (assignError) toast('Event added, but assigning members failed.')
+      else assigned = data
+    }
+    if (newEvent.nominationId) {
+      await supabase
+        .from('nominations')
+        .update({ status: 'approved', event_id: id })
+        .eq('id', newEvent.nominationId)
+    }
+    setAdding(false)
     setNewEvent(NEW_EVENT_INITIAL)
     setNewOrg(NEW_ORG_INITIAL)
     await refresh()
-    toast(creatingOrg ? 'Partner and event added.' : 'Event added.')
+    toast(
+      (creatingOrg ? 'Partner and event added' : 'Event added') +
+        (assigned ? ` — ${assigned} member${assigned === 1 ? '' : 's'} assigned.` : '.'),
+    )
+    if (newEvent.nominationId || assigned) setTab('events')
+  }
+
+  async function assignToExisting() {
+    if (!assignFor || !assignPick.length) return
+    setRowBusy('bulk')
+    const { data, error } = await supabase.rpc('assign_members', {
+      p_event_id: assignFor.id,
+      p_emails: assignPick,
+    })
+    setRowBusy(null)
+    if (error) {
+      toast('Could not assign those members.')
+      return
+    }
+    setAssignFor(null)
+    setAssignPick([])
+    await refresh()
+    toast(`${data} member${data === 1 ? '' : 's'} assigned.`)
   }
 
   const orgsById = useMemo(() => new Map(orgs.map((o) => [o.id, o])), [orgs])
@@ -282,6 +354,7 @@ export default function Events() {
                   <th>Link</th>
                   <th>Spots</th>
                   <th>Status</th>
+                  <th>Access</th>
                   <th></th>
                 </tr>
               </thead>
@@ -386,6 +459,29 @@ export default function Events() {
                           <option value="open">Open</option>
                           <option value="cancelled">Cancelled</option>
                         </select>
+                      </td>
+                      <td>
+                        <div className="access">
+                          <select
+                            value={ev.is_public === false ? 'private' : 'public'}
+                            disabled={busy}
+                            onChange={(e) => updateEvent(ev.id, { is_public: e.target.value === 'public' })}
+                          >
+                            <option value="public">Public</option>
+                            <option value="private">Private</option>
+                          </select>
+                          <button
+                            className="btn ghost sm"
+                            type="button"
+                            disabled={busy}
+                            onClick={() => {
+                              setAssignFor(ev)
+                              setAssignPick([])
+                            }}
+                          >
+                            Assign
+                          </button>
+                        </div>
                       </td>
                       <td>
                         {done && (
@@ -533,6 +629,12 @@ export default function Events() {
           <div className="plate">
             <h2>Add an Event</h2>
           </div>
+          {newEvent.nominationId && (
+            <div className="flag">
+              Creating an event from a nomination — details are prefilled and it starts private. Review,
+              choose who&rsquo;s on it, and publish only if you want everyone to see it.
+            </div>
+          )}
           <form className="card" style={{ maxWidth: 'none' }} onSubmit={addEvent}>
             <div className="fields">
               <div>
@@ -670,6 +772,39 @@ export default function Events() {
                 />
               </div>
             </div>
+            <div className="vis">
+              <label className="vis-opt">
+                <input
+                  type="radio"
+                  name="vis"
+                  checked={newEvent.isPublic}
+                  onChange={() => setNewEvent((f) => ({ ...f, isPublic: true }))}
+                />
+                <span>
+                  <b>Public</b>
+                  <small>Every member can see it and claim a spot.</small>
+                </span>
+              </label>
+              <label className="vis-opt">
+                <input
+                  type="radio"
+                  name="vis"
+                  checked={!newEvent.isPublic}
+                  onChange={() => setNewEvent((f) => ({ ...f, isPublic: false }))}
+                />
+                <span>
+                  <b>Private</b>
+                  <small>Only the members you assign see it. Nobody else.</small>
+                </span>
+              </label>
+            </div>
+            <h3 className="assign-title">Assign members</h3>
+            <AssignMembers
+              roster={roster}
+              mentors={mentors}
+              selected={newEvent.assignees}
+              onChange={(assignees) => setNewEvent((f) => ({ ...f, assignees }))}
+            />
             <div className="formfoot">
               <button className="btn" type="submit" disabled={adding}>
                 Add Event
@@ -770,6 +905,43 @@ export default function Events() {
             })
           )}
         </section>
+      )}
+
+      {assignFor && (
+        <div className="cal-overlay" onClick={() => setAssignFor(null)}>
+          <div className="cal-card" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="cal-close" aria-label="Close" onClick={() => setAssignFor(null)}>
+              &times;
+            </button>
+            <h3>
+              Assign members — {orgsById.get(assignFor.org_id)?.name || assignFor.org_id},{' '}
+              {fmtDate(assignFor.event_date)}
+            </h3>
+            <p className="note">
+              {assignFor.is_public === false
+                ? 'Private: only assigned members can see this event.'
+                : 'Public: assigning puts members on the list without them claiming.'}{' '}
+              Each member gets a calendar invite.
+            </p>
+            <AssignMembers
+              roster={roster}
+              mentors={mentors}
+              selected={assignPick}
+              onChange={setAssignPick}
+              already={signups.filter((x) => x.event_id === assignFor.id).map((x) => x.member_email)}
+            />
+            <div className="formfoot">
+              <button
+                className="btn"
+                type="button"
+                disabled={!assignPick.length || rowBusy === 'bulk'}
+                onClick={assignToExisting}
+              >
+                Assign {assignPick.length || ''} Member{assignPick.length === 1 ? '' : 's'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   )

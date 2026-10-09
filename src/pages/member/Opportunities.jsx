@@ -241,6 +241,7 @@ function EventCard({ ev, org, claims, myEmail, past, busy, onRelease }) {
   const unlimited = capacity === 0
   const mine = claims.some((c) => keyOf(c.member_email) === keyOf(myEmail))
   const full = !unlimited && claims.length >= capacity
+  const priv = ev.is_public === false
   const gpLink = ev.givepulse_link || org.givepulse_link
 
   return (
@@ -294,7 +295,7 @@ function EventCard({ ev, org, claims, myEmail, past, busy, onRelease }) {
       </div>
 
       <div className="slotside">
-        {!unlimited && capacity <= 14 && (
+        {!priv && !unlimited && capacity <= 14 && (
           <div className="pips">
             {Array.from({ length: capacity }).map((_, i) => {
               const claim = claims[i]
@@ -306,7 +307,9 @@ function EventCard({ ev, org, claims, myEmail, past, busy, onRelease }) {
           </div>
         )}
         <span className={'cnt' + (full && !mine ? ' full' : '')}>
-          {unlimited
+          {priv
+            ? 'Private — you were invited'
+            : unlimited
             ? 'Open to every member'
             : mine
               ? 'You are on this list'

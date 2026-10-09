@@ -343,7 +343,7 @@ begin
   end if;
 
   select capacity into v_capacity from events
-   where id = p_event_id and not archived for update;
+   where id = p_event_id and not archived and is_public for update;
   if not found then
     return json_build_object('ok', false, 'reason', 'no_such_event');
   end if;
@@ -777,3 +777,62 @@ do $$ begin
 exception when others then
   raise notice 'pg_cron unavailable — enable it and re-run to schedule the 90-day message purge.';
 end $$;
+
+-- ── Private events ─────────────────────────────────────────────────
+-- A private event is invisible to the cohort. Officers assign members to it
+-- (assign_members below); only those members see it, and it never appears
+-- to anyone else. Making it public later is just flipping is_public.
+alter table events add column if not exists is_public boolean not null default true;
+alter table nominations add column if not exists event_id text references events(id) on delete set null;
+
+-- Security-definer helpers so the events and signups policies can look at
+-- each other without recursing through each other's RLS.
+create or replace function event_is_public(p_event_id text)
+returns boolean language sql stable security definer set search_path = public as $$
+  select coalesce((select is_public from events where id = p_event_id), false)
+$$;
+
+create or replace function has_signup(p_event_id text)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from signups where event_id = p_event_id and member_email = me())
+$$;
+
+drop policy if exists events_read on events;
+create policy events_read on events for select to authenticated
+  using (is_public or is_officer() or has_signup(id));
+
+-- Signups stay cohort-readable for public events ("who is going"); for a
+-- private event only the assigned members (and officers) can see the list.
+drop policy if exists signups_read on signups;
+create policy signups_read on signups for select to authenticated
+  using (member_email = me() or is_officer() or event_is_public(event_id) or has_signup(event_id));
+
+-- Officers put members on an event without them claiming it. Goes through
+-- here (not a signups insert policy) so it stays officer-only; the normal
+-- signup trigger still sends each member their calendar invite.
+create or replace function assign_members(p_event_id text, p_emails text[])
+returns int language plpgsql security definer set search_path = public as $$
+declare
+  v_count int := 0;
+  r       roster%rowtype;
+begin
+  if not is_officer() then
+    raise exception 'officers only';
+  end if;
+  if not exists (select 1 from events where id = p_event_id) then
+    raise exception 'no such event';
+  end if;
+  for r in
+    select * from roster
+     where email in (select lower(x) from unnest(p_emails) x)
+  loop
+    if not exists (select 1 from signups where event_id = p_event_id and member_email = r.email) then
+      insert into signups (event_id, member_email, member_name, mentor_id, transportation, advocating)
+      values (p_event_id, r.email, r.full_name, r.mentor_id, false, false);
+      v_count := v_count + 1;
+    end if;
+  end loop;
+  return v_count;
+end $$;
+revoke execute on function assign_members(text, text[]) from public, anon;
+grant execute on function assign_members(text, text[]) to authenticated;

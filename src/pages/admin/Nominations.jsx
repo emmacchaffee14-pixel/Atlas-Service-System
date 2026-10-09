@@ -1,4 +1,5 @@
 import { Fragment, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAdminData } from '../../context/AdminDataContext.js'
 import { supabase } from '../../lib/supabaseClient.js'
 import { fmtDate } from '../../lib/format.js'
@@ -7,6 +8,7 @@ import { keyOf } from '../../lib/stats.js'
 export default function Nominations() {
   const { roster, nominations, refresh } = useAdminData()
   const [saving, setSaving] = useState(null)
+  const navigate = useNavigate()
 
   const rosterByEmail = useMemo(() => new Map(roster.map((r) => [keyOf(r.email), r])), [roster])
 
@@ -20,7 +22,11 @@ export default function Nominations() {
     setSaving(id)
     const { error } = await supabase.from('nominations').update({ status }).eq('id', id)
     setSaving(null)
-    if (!error) await refresh()
+    if (error) return
+    await refresh()
+    // Approving means building the event: jump straight to a prefilled,
+    // private-by-default Add Event form.
+    if (status === 'approved') navigate(`/admin/events?tab=add&nomination=${id}`)
   }
 
   return (
@@ -69,6 +75,20 @@ export default function Nominations() {
                     </Fragment>
                   ))}
                 </dl>
+                {status === 'approved' && (
+                  <div className="formfoot">
+                    {n.event_id ? (
+                      <span className="note">Event created.</span>
+                    ) : (
+                      <button
+                        className="btn sm"
+                        onClick={() => navigate(`/admin/events?tab=add&nomination=${n.id}`)}
+                      >
+                        Create Event
+                      </button>
+                    )}
+                  </div>
+                )}
                 {status === 'pending' && (
                   <div className="formfoot">
                     <button
