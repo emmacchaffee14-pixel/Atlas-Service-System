@@ -48,6 +48,15 @@ export default function Events() {
   const setTab = (key) => setParams(key === 'events' ? {} : { tab: key }, { replace: true })
   const nominationId = params.get('nomination')
 
+  const { roster, mentors, orgs, events, signups, logs, nominations, refresh } = useAdminData()
+  const [assignFor, setAssignFor] = useState(null) // event being assigned to, from the table
+  const [assignPick, setAssignPick] = useState([])
+  const toast = useToast()
+  const [rowBusy, setRowBusy] = useState(null)
+  const [newEvent, setNewEvent] = useState(NEW_EVENT_INITIAL)
+  const [newOrg, setNewOrg] = useState(NEW_ORG_INITIAL)
+  const [adding, setAdding] = useState(false)
+
   // Arriving from Approve on a nomination: prefill the form once, as a
   // private event with a new partner, so nothing goes public until chosen.
   useEffect(() => {
@@ -76,14 +85,6 @@ export default function Events() {
     })
     setNewOrg({ name: n.org_name || '', location: n.address || '', impactMetric: '', website: n.website || '' })
   }, [tab, nominationId, nominations])
-  const { roster, mentors, orgs, events, signups, logs, nominations, refresh } = useAdminData()
-  const [assignFor, setAssignFor] = useState(null) // event being assigned to, from the table
-  const [assignPick, setAssignPick] = useState([])
-  const toast = useToast()
-  const [rowBusy, setRowBusy] = useState(null)
-  const [newEvent, setNewEvent] = useState(NEW_EVENT_INITIAL)
-  const [newOrg, setNewOrg] = useState(NEW_ORG_INITIAL)
-  const [adding, setAdding] = useState(false)
 
   async function updateEvent(id, patch) {
     setRowBusy(id)
