@@ -1477,10 +1477,16 @@ tr.done td:first-child {
 
 /* Opportunities calendar */
 .cal-bar {
+  position: relative;
   display: flex;
+  justify-content: center;
   align-items: center;
   gap: 10px;
   margin-bottom: 10px;
+}
+.cal-bar .cal-today {
+  position: absolute;
+  right: 0;
 }
 .cal-bar h2 {
   margin: 0;

@@ -138,7 +138,7 @@ export default function Opportunities() {
                 ›
               </button>
               {!isThisMonth && (
-                <button type="button" className="btn ghost sm" onClick={() => setView({ y: ty, m: tm - 1 })}>
+                <button type="button" className="btn ghost sm cal-today" onClick={() => setView({ y: ty, m: tm - 1 })}>
                   Today
                 </button>
               )}
