@@ -1571,10 +1571,29 @@ tr.done td:first-child {
   background: var(--water);
   color: var(--fill-ink);
 }
+.cal-chip.open {
+  border-width: 2px;
+  font-weight: 600;
+}
+/* Full reads as "closed": flat grey hatching, struck-through name, and a
+   FULL tag — the opposite of the bold navy outline an open event gets. */
 .cal-chip.full {
-  border-color: var(--rule);
+  border: 1px dashed var(--soft);
   color: var(--soft);
-  font-weight: 700;
+  background: repeating-linear-gradient(135deg, transparent 0 5px, var(--shade) 5px 10px);
+  text-decoration: line-through;
+  cursor: pointer;
+}
+.cal-chip.full .cal-fulltag {
+  text-decoration: none;
+  display: inline-block;
+  margin-left: 4px;
+  padding: 0 4px;
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: var(--soft);
+  color: var(--base);
 }
 .cal-chip:hover {
   background: var(--shade);

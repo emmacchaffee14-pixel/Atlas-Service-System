@@ -173,6 +173,7 @@ export default function Opportunities() {
                         title={`${chipLabel(ev)} · ${fmtTimeRange(ev.start_time, ev.end_time)}`}
                       >
                         <span>{fmtTime(ev.start_time)}</span> {chipLabel(ev)}
+                        {stateOf(ev) === 'full' && <strong className="cal-fulltag">Full</strong>}
                       </button>
                     ))}
                   </div>
@@ -182,7 +183,6 @@ export default function Opportunities() {
 
             <div className="cal-key">
               <span className="cal-chip open">Open</span>
-              <span className="cal-chip mine">You&rsquo;re on it</span>
               <span className="cal-chip full">Full</span>
             </div>
 
