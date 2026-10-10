@@ -44,7 +44,7 @@ async function loadReferenceData() {
     events: events.data ?? [],
     signups: signups.data ?? [],
     // Only approved logs count everywhere; allLogs feeds the review queue and Files.
-    logs: (logs.data ?? []).filter((l) => l.status === 'approved'),
+    logs: (logs.data ?? []).filter((l) => (l.status ?? 'approved') === 'approved'),
     allLogs: logs.data ?? [],
     nominations: nominations.data ?? [],
     contacts: contacts.data ?? [],

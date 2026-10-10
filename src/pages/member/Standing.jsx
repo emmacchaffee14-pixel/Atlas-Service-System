@@ -31,7 +31,7 @@ export default function Standing() {
   const stats = useMemo(
     () =>
       computeMemberStats(myEmail, {
-        logs: logs.filter((l) => l.status === 'approved'),
+        logs: logs.filter((l) => (l.status ?? 'approved') === 'approved'),
         signups,
         eventsById,
         settings,

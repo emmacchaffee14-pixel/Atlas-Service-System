@@ -121,7 +121,7 @@ export default function MemberLayout() {
     .filter((s) => keyOf(s.member_email) === keyOf(me))
     .map((s) => ({ ...s, date: eventsById.get(s.event_id)?.event_date }))
     .filter((s) => s.date && s.date < today && eventsById.get(s.event_id)?.status !== 'cancelled' && !loggedIds.has(s.event_id))
-  const decisions = myLogs.filter((l) => l.status !== 'pending' && !l.seen_at)
+  const decisions = myLogs.filter((l) => l.status && l.status !== 'pending' && !l.seen_at)
 
   return (
     <div className="shell">
