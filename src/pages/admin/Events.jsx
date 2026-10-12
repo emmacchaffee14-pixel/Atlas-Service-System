@@ -48,7 +48,7 @@ export default function Events() {
   const setTab = (key) => setParams(key === 'events' ? {} : { tab: key }, { replace: true })
   const nominationId = params.get('nomination')
 
-  const { roster, mentors, orgs, events, signups, logs, nominations, refresh } = useAdminData()
+  const { roster, mentors, orgs, events, signups, logs, allLogs, nominations, refresh } = useAdminData()
   const [assignFor, setAssignFor] = useState(null) // event being assigned to, from the table
   const [assignPick, setAssignPick] = useState([])
   const toast = useToast()
@@ -95,6 +95,43 @@ export default function Events() {
       return
     }
     await refresh()
+  }
+
+  async function cancelEvent(ev, name) {
+    const claimed = signups.filter((x) => x.event_id === ev.id).length
+    const sure = window.confirm(
+      `Cancel ${name} on ${fmtDate(ev.event_date)}?\n\n` +
+        'It disappears from the member side and nobody can claim it. ' +
+        (claimed ? `${claimed} signed-up member${claimed === 1 ? '' : 's'} are NOT notified automatically — message them. ` : '') +
+        'You can reopen it later.',
+    )
+    if (sure) await updateEvent(ev.id, { status: 'cancelled' })
+  }
+
+  async function deleteEvent(ev, name) {
+    // Deleting an event also deletes its sign-ups AND any service logs filed
+    // against it — which would erase members' hours. So refuse when logs exist.
+    const logCount = allLogs.filter((l) => l.event_id === ev.id).length
+    if (logCount) {
+      toast(`${name} has ${logCount} service log${logCount === 1 ? '' : 's'}. Archive it instead — deleting would erase those hours.`)
+      return
+    }
+    const claimed = signups.filter((x) => x.event_id === ev.id).length
+    const sure = window.confirm(
+      `Permanently delete ${name} on ${fmtDate(ev.event_date)}?` +
+        (claimed ? `\n\nThis also removes its ${claimed} sign-up${claimed === 1 ? '' : 's'}.` : '') +
+        '\n\nThis cannot be undone. To keep a record, cancel or archive it instead.',
+    )
+    if (!sure) return
+    setRowBusy(ev.id)
+    const { error } = await supabase.from('events').delete().eq('id', ev.id)
+    setRowBusy(null)
+    if (error) {
+      toast('Could not delete that event.')
+      return
+    }
+    await refresh()
+    toast('Event deleted.')
   }
 
   async function archiveEvents(ids, archived) {
@@ -378,7 +415,7 @@ export default function Events() {
                   const done = ev.event_date < today
                   const org = orgsById.get(ev.org_id)
                   return (
-                    <tr key={ev.id} className={done ? 'done' : undefined}>
+                    <tr key={ev.id} className={done || ev.status === 'cancelled' ? 'done' : undefined}>
                       <td>
                         <select
                           value={ev.org_id}
@@ -498,16 +535,46 @@ export default function Events() {
                         </div>
                       </td>
                       <td>
-                        {done && (
+                        <div className="access">
+                          {done && (
+                            <button
+                              className="btn ghost sm"
+                              type="button"
+                              disabled={busy}
+                              onClick={() => archiveEvents([ev.id], true)}
+                            >
+                              Archive
+                            </button>
+                          )}
+                          {!done &&
+                            (ev.status === 'cancelled' ? (
+                              <button
+                                className="btn ghost sm"
+                                type="button"
+                                disabled={busy}
+                                onClick={() => updateEvent(ev.id, { status: 'open' })}
+                              >
+                                Reopen
+                              </button>
+                            ) : (
+                              <button
+                                className="btn ghost sm"
+                                type="button"
+                                disabled={busy}
+                                onClick={() => cancelEvent(ev, org?.name || ev.org_id)}
+                              >
+                                Cancel
+                              </button>
+                            ))}
                           <button
-                            className="btn ghost sm"
+                            className="btn warn sm"
                             type="button"
                             disabled={busy}
-                            onClick={() => archiveEvents([ev.id], true)}
+                            onClick={() => deleteEvent(ev, org?.name || ev.org_id)}
                           >
-                            Archive
+                            Delete
                           </button>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   )
