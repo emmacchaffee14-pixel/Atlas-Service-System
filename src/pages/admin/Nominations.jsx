@@ -1,12 +1,14 @@
 import { Fragment, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAdminData } from '../../context/AdminDataContext.js'
+import { useToast } from '../../context/ToastContext.jsx'
 import { supabase } from '../../lib/supabaseClient.js'
 import { fmtDate } from '../../lib/format.js'
 import { keyOf } from '../../lib/stats.js'
 
 export default function Nominations() {
   const { roster, nominations, refresh } = useAdminData()
+  const toast = useToast()
   const [saving, setSaving] = useState(null)
   const navigate = useNavigate()
 
@@ -27,6 +29,20 @@ export default function Nominations() {
     // Approving means building the event: jump straight to a prefilled,
     // private-by-default Add Event form.
     if (status === 'approved') navigate(`/admin/events?tab=add&nomination=${id}`)
+  }
+
+  async function remove(n) {
+    if (!window.confirm(`Delete the declined nomination "${n.org_name}"? This cannot be undone.`)) return
+    setSaving(n.id)
+    const { data, error } = await supabase.from('nominations').delete().eq('id', n.id).select('id')
+    setSaving(null)
+    // RLS turns a not-allowed delete into zero rows rather than an error.
+    if (error || !data?.length) {
+      toast('Could not delete that. Has the latest SQL been run?')
+      return
+    }
+    await refresh()
+    toast('Nomination deleted.')
   }
 
   return (
@@ -75,6 +91,13 @@ export default function Nominations() {
                     </Fragment>
                   ))}
                 </dl>
+                {status === 'declined' && (
+                  <div className="formfoot">
+                    <button className="btn warn sm" disabled={saving === n.id} onClick={() => remove(n)}>
+                      Delete
+                    </button>
+                  </div>
+                )}
                 {status === 'approved' && (
                   <div className="formfoot">
                     {n.event_id ? (

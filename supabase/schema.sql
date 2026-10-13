@@ -877,3 +877,10 @@ alter table signups add column if not exists ride_resolution text;
 drop policy if exists signups_officer_update on signups;
 create policy signups_officer_update on signups for update to authenticated
   using (is_officer()) with check (is_officer());
+
+-- ── Delete declined nominations ────────────────────────────────────
+-- Officers may delete a nomination, but only once it's declined — pending
+-- ones still need a decision and approved ones are linked to an event.
+drop policy if exists noms_delete on nominations;
+create policy noms_delete on nominations for delete to authenticated
+  using (is_officer() and status = 'declined');
