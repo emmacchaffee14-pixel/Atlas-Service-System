@@ -187,7 +187,8 @@ export default function Events() {
       capacity: Number(newEvent.capacity) || 0,
       location: newEvent.location.trim() || null,
       givepulse_link: newEvent.givepulse.trim() || null,
-      notes: newEvent.notes.trim() || null,
+      // Only sent when filled in, so adding events still works before the notes column exists.
+      ...(newEvent.notes.trim() ? { notes: newEvent.notes.trim() } : {}),
       is_public: newEvent.isPublic,
       status: 'open',
     })
