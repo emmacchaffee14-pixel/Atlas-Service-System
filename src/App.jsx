@@ -3,7 +3,6 @@ import Landing from './pages/Landing.jsx'
 import AccountSetup from './pages/AccountSetup.jsx'
 import AdminLayout from './components/AdminLayout.jsx'
 import Dashboard from './pages/admin/Dashboard.jsx'
-import Members from './pages/admin/Members.jsx'
 import Groups from './pages/admin/Groups.jsx'
 import Events from './pages/admin/Events.jsx'
 import ServiceLogs from './pages/admin/ServiceLogs.jsx'
@@ -27,7 +26,7 @@ export default function App() {
       <Route path="/setup" element={<AccountSetup />} />
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<Dashboard />} />
-        <Route path="members" element={<Members />} />
+        <Route path="members" element={<Navigate to="/admin/groups?tab=members" replace />} />
         <Route path="groups" element={<Groups />} />
         <Route path="events" element={<Events />} />
         <Route path="logs" element={<ServiceLogs />} />

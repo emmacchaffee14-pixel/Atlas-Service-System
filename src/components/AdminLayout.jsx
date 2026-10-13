@@ -8,7 +8,6 @@ import { supabase } from '../lib/supabaseClient.js'
 // see the .session block below.
 const ADMIN_NAV = [
   ['/admin', 'Dashboard'],
-  ['/admin/members', 'Members'],
   ['/admin/groups', 'Groups'],
   ['/admin/events', 'Events'],
   ['/admin/logs', 'Service Logs'],

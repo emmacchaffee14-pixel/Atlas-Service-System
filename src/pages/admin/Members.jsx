@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react'
+import { supabase } from '../../lib/supabaseClient.js'
+import { useToast } from '../../context/ToastContext.jsx'
 import { useAdminData } from '../../context/AdminDataContext.js'
 import RoleTag from '../../components/RoleTag.jsx'
 import { downloadCsv } from '../../lib/csv.js'
@@ -18,7 +20,9 @@ const HEADS = [
 ]
 
 export default function Members() {
-  const { roster, mentors, orgs, events, signups, logs, settings, officerEmail } = useAdminData()
+  const { roster, mentors, orgs, events, signups, logs, settings, officerEmail, refresh } = useAdminData()
+  const toast = useToast()
+  const [savingMentor, setSavingMentor] = useState(null)
   const [filters, setFilters] = useState({
     mentor: '',
     group: '',
@@ -27,7 +31,6 @@ export default function Members() {
     role: 'member', // officers/admins still serve and still count — just hidden from this list by default
     search: '',
   })
-  const [view, setView] = useState('grouped')
   const [sort, setSort] = useState({ key: 'name', dir: 1 })
 
   const eventsById = useMemo(() => new Map(events.map((e) => [e.id, e])), [events])
@@ -109,32 +112,22 @@ export default function Members() {
     })
   }, [filtered, sort])
 
-  // Grouped view: one block per mentor (alphabetical), anyone without a
-  // mentor last. Rows keep whatever sort the column headers set.
-  const sections = useMemo(() => {
-    const by = new Map()
-    sorted.forEach((r) => {
-      const k = r.member.mentor_id ?? 'none'
-      if (!by.has(k)) by.set(k, [])
-      by.get(k).push(r)
-    })
-    return [...by.entries()]
-      .map(([k, list]) => {
-        const mentor = mentors.find((m) => m.id === k)
-        return {
-          key: String(k),
-          title: mentor ? mentor.name : 'No Mentor Assigned',
-          group: mentor?.group_name || '',
-          list,
-          met: list.filter((r) => r.stats.met).length,
-          unassigned: !mentor,
-        }
-      })
-      .sort((a, b) => a.unassigned - b.unassigned || a.title.localeCompare(b.title))
-  }, [sorted, mentors])
+  async function saveMentor(email, value) {
+    setSavingMentor(email)
+    const { error } = await supabase
+      .from('roster')
+      .update({ mentor_id: value ? Number(value) : null })
+      .eq('email', email)
+    setSavingMentor(null)
+    if (error) {
+      toast('Could not change that mentor.')
+      return
+    }
+    await refresh()
+  }
 
-  function renderTable(rows, showMentor = true) {
-    const heads = showMentor ? HEADS : HEADS.filter(([key]) => key !== 'mentor' && key !== 'group')
+  function renderTable(rows) {
+    const heads = HEADS
     return (
         <div className="scroll">
       <table>
@@ -162,8 +155,22 @@ export default function Members() {
               <td>
                 <RoleTag role={r.role} />
               </td>
-              {showMentor && <td>{r.mentor || '—'}</td>}
-              {showMentor && <td>{r.group || '—'}</td>}
+              <td>
+                <select
+                  value={r.member.mentor_id || ''}
+                  disabled={savingMentor === r.member.email}
+                  onChange={(e) => saveMentor(r.member.email, e.target.value)}
+                  style={{ minWidth: 150 }}
+                >
+                  <option value="">— none —</option>
+                  {mentors.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+              </td>
+              <td>{r.group || '—'}</td>
               <td className="n">{r.stats.claims}</td>
               <td className="n">{r.stats.logsCount}</td>
               <td className="n">{r.stats.total}</td>
@@ -210,11 +217,6 @@ export default function Members() {
 
   return (
     <>
-      <div className="pagehead">
-        <h1>Members</h1>
-        <p>Filter by mentor, group, partner or standing. Everything here is live.</p>
-      </div>
-
       <section>
         <div className="filters">
           <div>
@@ -286,41 +288,7 @@ export default function Members() {
             {sorted.length} of {memberCount} members
           </span>
         </div>
-        <div className="viewtoggle" style={{ marginBottom: 12 }}>
-          <button
-            type="button"
-            className={'btn sm' + (view === 'grouped' ? '' : ' ghost')}
-            onClick={() => setView('grouped')}
-          >
-            By Mentor
-          </button>{' '}
-          <button
-            type="button"
-            className={'btn sm' + (view === 'list' ? '' : ' ghost')}
-            onClick={() => setView('list')}
-          >
-            Full List
-          </button>
-        </div>
-        {view === 'list' ? (
-          renderTable(sorted)
-        ) : sections.length === 0 ? (
-          <p className="empty">No members match these filters.</p>
-        ) : (
-          sections.map((sec) => (
-            <div key={sec.key} style={{ marginBottom: 22 }}>
-              <h3>
-                {sec.title}
-                {sec.group && <span className="note"> · {sec.group}</span>}
-                <span className="note">
-                  {' '}
-                  — {sec.list.length} member{sec.list.length === 1 ? '' : 's'}, {sec.met} met
-                </span>
-              </h3>
-              {renderTable(sec.list, false)}
-            </div>
-          ))
-        )}
+        {sorted.length === 0 ? <p className="empty">No members match these filters.</p> : renderTable(sorted)}
         <button className="btn ghost sm" style={{ marginTop: 14 }} onClick={exportCsv}>
           Export This View as CSV
         </button>

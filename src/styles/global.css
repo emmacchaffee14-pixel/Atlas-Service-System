@@ -2637,3 +2637,48 @@ tbody tr.subrow:hover td {
   display: block;
   color: var(--soft);
 }
+
+/* Groups page */
+.grp {
+  margin-bottom: 30px;
+}
+.grp-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 10px 24px;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--rule);
+}
+.grp-head h3 {
+  font-size: 18px;
+}
+.grp-name {
+  margin-top: 4px;
+  min-width: 240px;
+  border: 0;
+  border-bottom: 1px dashed var(--rule);
+  border-radius: 0;
+  background: none;
+  padding: 2px 0;
+  font-family: var(--script);
+  font-style: italic;
+  font-size: 17px;
+  color: var(--soft);
+}
+.grp-name:focus {
+  outline: none;
+  border-bottom-color: var(--water);
+}
+.grp-stats {
+  display: flex;
+  gap: 22px;
+  font-size: 13px;
+  color: var(--soft);
+}
+.grp-stats b {
+  color: var(--water);
+  font-size: 17px;
+}
