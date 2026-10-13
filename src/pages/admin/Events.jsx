@@ -268,6 +268,43 @@ export default function Events() {
         .sort((a, b) => (a.event?.event_date || '').localeCompare(b.event?.event_date || '')),
     [signups, eventsById, orgsById],
   )
+  const openRides = transportationRows.filter((r) => !r.signup.ride_resolved_at)
+  const resolvedRides = transportationRows.filter((r) => r.signup.ride_resolved_at)
+
+  async function resolveRide(signup, name) {
+    const note = window.prompt(`How was ${name}'s ride solved?\n(e.g. "Riding with Sam", "Uber voucher")`)
+    if (note === null) return
+    if (!note.trim()) {
+      toast('Add a short note on how it was solved.')
+      return
+    }
+    setRowBusy('bulk')
+    const { error } = await supabase
+      .from('signups')
+      .update({ ride_resolved_at: new Date().toISOString(), ride_resolution: note.trim() })
+      .eq('id', signup.id)
+    setRowBusy(null)
+    if (error) {
+      toast('Could not save that. Has the latest SQL been run?')
+      return
+    }
+    await refresh()
+    toast('Ride resolved.')
+  }
+
+  async function reopenRide(signup) {
+    setRowBusy('bulk')
+    const { error } = await supabase
+      .from('signups')
+      .update({ ride_resolved_at: null, ride_resolution: null })
+      .eq('id', signup.id)
+    setRowBusy(null)
+    if (error) {
+      toast('Could not reopen that.')
+      return
+    }
+    await refresh()
+  }
 
   const sortedEvents = useMemo(
     () => [...events].sort((x, y) => (x.event_date || '').localeCompare(y.event_date || '')),
@@ -314,7 +351,7 @@ export default function Events() {
   )
 
   const tabCounts = {
-    rides: transportationRows.length,
+    rides: openRides.length,
     signups: signupSections.length,
     archive: archivedRows.length,
   }
@@ -344,9 +381,9 @@ export default function Events() {
         ))}
       </div>
 
-      {tab === 'events' && transportationRows.length > 0 && (
+      {tab === 'events' && openRides.length > 0 && (
         <div className="flag" style={{ marginTop: 18 }}>
-          <b>{transportationRows.length} upcoming ride{transportationRows.length === 1 ? '' : 's'} requested.</b>{' '}
+          <b>{openRides.length} ride{openRides.length === 1 ? '' : 's'} still need{openRides.length === 1 ? 's' : ''} solving.</b>{' '}
           <button type="button" className="linkbtn" onClick={() => setTab('rides')}>
             View rides →
           </button>
@@ -357,38 +394,96 @@ export default function Events() {
         <section>
           <div className="plate">
             <h2>Needs Transportation</h2>
-            <span>{transportationRows.length} upcoming ride{transportationRows.length === 1 ? '' : 's'}</span>
+            <span>{openRides.length} unresolved · {resolvedRides.length} resolved</span>
           </div>
           {transportationRows.length === 0 ? (
             <p className="empty">Nobody has asked for a ride yet.</p>
           ) : (
-            <div className="scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Member</th>
-                    <th>Event</th>
-                    <th>Date</th>
-                    <th>Mentor</th>
-                    <th className="wrapok">Notes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {transportationRows.map(({ signup, event, org }) => (
-                    <tr key={signup.id} className={event && event.event_date <= weekEnd ? 'urgent-row' : undefined}>
-                      <td>{rosterByEmail.get(keyOf(signup.member_email))?.full_name || signup.member_email}</td>
-                      <td>{org?.name || event?.org_id || '—'}</td>
-                      <td>
-                        {event ? fmtDate(event.event_date) : '—'}
-                        {event && event.event_date <= weekEnd && <em className="cu-pill">This week</em>}
-                      </td>
-                      <td>{mentorName(signup.mentor_id, mentors) || '—'}</td>
-                      <td className="wrapok">{signup.notes || '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <>
+              {openRides.length === 0 ? (
+                <p className="empty">Every ride is solved.</p>
+              ) : (
+                <div className="scroll">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Member</th>
+                        <th>Event</th>
+                        <th>Date</th>
+                        <th>Mentor</th>
+                        <th className="wrapok">Notes</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {openRides.map(({ signup, event, org }) => {
+                        const name = rosterByEmail.get(keyOf(signup.member_email))?.full_name || signup.member_email
+                        return (
+                          <tr key={signup.id} className={event && event.event_date <= weekEnd ? 'urgent-row' : undefined}>
+                            <td>{name}</td>
+                            <td>{org?.name || event?.org_id || '—'}</td>
+                            <td>
+                              {event ? fmtDate(event.event_date) : '—'}
+                              {event && event.event_date <= weekEnd && <em className="cu-pill">This week</em>}
+                            </td>
+                            <td>{mentorName(signup.mentor_id, mentors) || '—'}</td>
+                            <td className="wrapok">{signup.notes || '—'}</td>
+                            <td>
+                              <button
+                                type="button"
+                                className="btn sm"
+                                disabled={rowBusy === 'bulk'}
+                                onClick={() => resolveRide(signup, name)}
+                              >
+                                Resolve
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {resolvedRides.length > 0 && (
+                <details className="mapwrap" style={{ marginTop: 18 }}>
+                  <summary>Resolved ({resolvedRides.length})</summary>
+                  <div className="scroll" style={{ marginTop: 8 }}>
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Member</th>
+                          <th>Event</th>
+                          <th>Date</th>
+                          <th className="wrapok">How it was solved</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {resolvedRides.map(({ signup, event, org }) => (
+                          <tr key={signup.id}>
+                            <td>{rosterByEmail.get(keyOf(signup.member_email))?.full_name || signup.member_email}</td>
+                            <td>{org?.name || event?.org_id || '—'}</td>
+                            <td>{event ? fmtDate(event.event_date) : '—'}</td>
+                            <td className="wrapok">{signup.ride_resolution || '—'}</td>
+                            <td>
+                              <button
+                                type="button"
+                                className="btn ghost sm"
+                                disabled={rowBusy === 'bulk'}
+                                onClick={() => reopenRide(signup)}
+                              >
+                                Reopen
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </details>
+              )}
+            </>
           )}
         </section>
       )}
@@ -945,7 +1040,7 @@ export default function Events() {
           ) : (
             signupSections.map(({ ev }) => {
               const list = signups.filter((s) => s.event_id === ev.id)
-              const rides = list.filter((s) => s.transportation).length
+              const rides = list.filter((s) => s.transportation && !s.ride_resolved_at).length
               return (
               <details key={ev.id} className="su-event">
                 <summary>
@@ -973,7 +1068,7 @@ export default function Events() {
                           <tr key={s.id}>
                             <td>
                               {rosterByEmail.get(keyOf(s.member_email))?.full_name || s.member_email}
-                              {s.transportation && <em className="cu-pill">Needs ride</em>}
+                              {s.transportation && !s.ride_resolved_at && <em className="cu-pill">Needs ride</em>}
                             </td>
                             <td>{mentorName(s.mentor_id, mentors) || '—'}</td>
                             <td className="wrapok">{s.notes || '—'}</td>

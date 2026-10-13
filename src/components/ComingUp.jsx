@@ -21,7 +21,7 @@ export default function ComingUp() {
       .map((ev) => {
         const claims = signups.filter((s) => s.event_id === ev.id)
         const riders = claims
-          .filter((s) => s.transportation)
+          .filter((s) => s.transportation && !s.ride_resolved_at)
           .map((s) => (rosterByEmail.get(keyOf(s.member_email))?.full_name || s.member_email).split(' ')[0])
         return { ev, org: orgsById.get(ev.org_id), claimed: claims.length, riders }
       })

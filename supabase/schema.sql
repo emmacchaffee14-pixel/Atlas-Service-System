@@ -867,3 +867,13 @@ returns void language sql security definer set search_path = public as $$
 $$;
 revoke execute on function mark_logs_seen() from public, anon;
 grant execute on function mark_logs_seen() to authenticated;
+
+-- ── Ride resolution ────────────────────────────────────────────────
+-- An officer marks a ride request handled and records how (e.g. "Riding
+-- with Sam", "Uber voucher"). Officers only: members have no update policy
+-- on signups, and this one is officer-scoped.
+alter table signups add column if not exists ride_resolved_at timestamptz;
+alter table signups add column if not exists ride_resolution text;
+drop policy if exists signups_officer_update on signups;
+create policy signups_officer_update on signups for update to authenticated
+  using (is_officer()) with check (is_officer());
