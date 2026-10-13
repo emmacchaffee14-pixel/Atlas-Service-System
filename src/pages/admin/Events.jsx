@@ -17,7 +17,7 @@ const TABS = [
 ]
 const TAB_KEYS = TABS.map(([k]) => k)
 const NEW_ORG_SENTINEL = '__new__'
-const NEW_EVENT_INITIAL = { orgId: '', date: '', start: '', end: '', capacity: '0', location: '', givepulse: '', isPublic: true, assignees: [], nominationId: null }
+const NEW_EVENT_INITIAL = { orgId: '', date: '', start: '', end: '', capacity: '0', location: '', givepulse: '', notes: '', isPublic: true, assignees: [], nominationId: null }
 const NEW_ORG_INITIAL = { name: '', location: '', impactMetric: '', website: '' }
 
 function makeEventId(existingEvents, orgId, date) {
@@ -187,6 +187,7 @@ export default function Events() {
       capacity: Number(newEvent.capacity) || 0,
       location: newEvent.location.trim() || null,
       givepulse_link: newEvent.givepulse.trim() || null,
+      notes: newEvent.notes.trim() || null,
       is_public: newEvent.isPublic,
       status: 'open',
     })
@@ -498,6 +499,7 @@ export default function Events() {
                   <th>Time</th>
                   <th>Location</th>
                   <th>Link</th>
+                  <th>Notes</th>
                   <th>Spots</th>
                   <th>Status</th>
                   <th>Access</th>
@@ -575,6 +577,20 @@ export default function Events() {
                             const next = e.target.value.trim()
                             if (next !== (ev.givepulse_link || ''))
                               updateEvent(ev.id, { givepulse_link: next || null })
+                          }}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          key={`notes-${ev.notes || ''}`}
+                          type="text"
+                          defaultValue={ev.notes || ''}
+                          placeholder="Notes for members"
+                          disabled={busy}
+                          style={{ minWidth: 190 }}
+                          onBlur={(e) => {
+                            const next = e.target.value.trim()
+                            if (next !== (ev.notes || '')) updateEvent(ev.id, { notes: next || null })
                           }}
                         />
                       </td>
@@ -947,6 +963,19 @@ export default function Events() {
                   onChange={(e) => setNewEvent((f) => ({ ...f, givepulse: e.target.value }))}
                 />
               </div>
+            </div>
+            <div style={{ marginTop: 18 }}>
+              <label htmlFor="neNotes">
+                Notes
+                <small>Optional — shown to members on the event card</small>
+              </label>
+              <textarea
+                id="neNotes"
+                rows="3"
+                value={newEvent.notes}
+                onChange={(e) => setNewEvent((f) => ({ ...f, notes: e.target.value }))}
+                style={{ width: '100%' }}
+              />
             </div>
             <div className="vis">
               <label className="vis-opt">

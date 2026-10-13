@@ -255,6 +255,7 @@ function EventCard({ ev, org, claims, myEmail, past, busy, onRelease }) {
           {ev.location || org.location || 'Location to be confirmed'}
         </div>
         {org.description && <p className="desc">{org.description}</p>}
+        {ev.notes && <p className="desc" style={{ whiteSpace: 'pre-line' }}><b>Note:</b> {ev.notes}</p>}
         {org.impact_metric && <div className="where">Counts toward: {org.impact_metric}</div>}
         {org.website && (
           <a

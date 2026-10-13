@@ -884,3 +884,9 @@ create policy signups_officer_update on signups for update to authenticated
 drop policy if exists noms_delete on nominations;
 create policy noms_delete on nominations for delete to authenticated
   using (is_officer() and status = 'declined');
+
+-- ── Event notes ────────────────────────────────────────────────────
+-- Free-text notes an officer adds to an event (what to wear, where to meet,
+-- parking). Shown to members on the event card — events are readable by the
+-- cohort, so don't put anything private here.
+alter table events add column if not exists notes text;
