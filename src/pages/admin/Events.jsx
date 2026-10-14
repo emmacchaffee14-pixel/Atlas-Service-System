@@ -348,7 +348,7 @@ export default function Events() {
       if (!by.has(key)) by.set(key, { metric, total: 0, events: [] })
       const g = by.get(key)
       g.total += stats.verified
-      g.events.push({ ev, org, verified: stats.verified, logs: stats.logsCount })
+      g.events.push({ ev, org, verified: stats.verified, logs: stats.logsCount, manual: stats.overridden })
     })
     return [...by.values()].sort((a, b) => b.total - a.total)
   }, [eventRows, orgsById])
@@ -753,13 +753,14 @@ export default function Events() {
                     <tbody>
                       {g.events
                         .sort((a, b) => a.ev.event_date.localeCompare(b.ev.event_date))
-                        .map(({ ev, org, verified, logs: n }) => (
+                        .map(({ ev, org, verified, logs: n, manual }) => (
                           <tr key={ev.id}>
                             <td>{org?.name || ev.org_id}</td>
                             <td>{fmtDate(ev.event_date)}</td>
                             <td className="n soft">{n} log{n === 1 ? '' : 's'}</td>
                             <td className="n">
                               <b>{verified}</b>
+                              {manual && <em className="cu-pill">Manual</em>}
                             </td>
                           </tr>
                         ))}
@@ -800,7 +801,25 @@ export default function Events() {
                     <td className="n">{stats.logsCount}</td>
                     <td className="n">{stats.hours}</td>
                     <td className="n">
-                      <b>{stats.verified}</b>
+                      <input
+                        key={`imp-${ev.impact_override ?? ''}`}
+                        type="number"
+                        min="0"
+                        className="impact-input"
+                        defaultValue={ev.impact_override ?? ''}
+                        placeholder={String(stats.calculated)}
+                        title={
+                          stats.overridden
+                            ? `Manual override. Calculated average was ${stats.calculated}. Clear the box to go back to it.`
+                            : 'Type a number to override the calculated average. Leave blank to use it.'
+                        }
+                        onBlur={(e) => {
+                          const raw = e.target.value.trim()
+                          const next = raw === '' ? null : Math.max(0, Number(raw))
+                          if (next !== (ev.impact_override ?? null)) updateEvent(ev.id, { impact_override: next })
+                        }}
+                      />
+                      {stats.overridden && <em className="cu-pill">Manual</em>}
                     </td>
                     <td>{orgsById.get(ev.org_id)?.impact_metric || '—'}</td>
                     <td className="n">
@@ -830,7 +849,9 @@ export default function Events() {
           <p className="note">
             Impact is the per-event average of what members reported, so a group total that six people
             each report as 120 counts once as 120, not 720. Raw Sum (grey) is every answer added
-            together, shown only for transparency. Archived events are included.
+            together, shown only for transparency. To fix a wrong figure, type the right number in
+            the Impact box — it replaces the average everywhere (Dashboard, metric totals, partners)
+            until you clear it. Archived events are included.
           </p>
         </section>
       )}

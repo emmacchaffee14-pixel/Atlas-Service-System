@@ -2726,3 +2726,13 @@ td.soft {
 .impact table {
   margin: 0 0 14px;
 }
+
+.impact-input {
+  width: 84px;
+  text-align: right;
+  font-weight: 700;
+}
+.impact-input::placeholder {
+  color: var(--ink);
+  opacity: 0.55;
+}

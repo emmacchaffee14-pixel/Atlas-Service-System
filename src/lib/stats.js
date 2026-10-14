@@ -64,12 +64,17 @@ export function computeEventStats(event, { signups, logs }) {
       qn++
     }
   })
+  const calculated = qn ? Math.round(reported / qn) : 0
+  // An officer's manual figure wins over the computed average.
+  const overridden = event.impact_override != null && event.impact_override !== ''
   return {
     claimed: claims.length,
     capacity: Number(event.capacity) || 0,
     logsCount: eventLogs.length,
     hours: round(hours),
     reported,
-    verified: qn ? Math.round(reported / qn) : 0,
+    calculated,
+    overridden,
+    verified: overridden ? Number(event.impact_override) : calculated,
   }
 }

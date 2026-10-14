@@ -890,3 +890,9 @@ create policy noms_delete on nominations for delete to authenticated
 -- parking). Shown to members on the event card — events are readable by the
 -- cohort, so don't put anything private here.
 alter table events add column if not exists notes text;
+
+-- ── Impact override ────────────────────────────────────────────────
+-- An officer can set an event's verified impact by hand when the average of
+-- member reports is wrong (e.g. everyone reported their own share). Null =
+-- use the computed average. Feeds every rollup, since they all read verified.
+alter table events add column if not exists impact_override numeric check (impact_override >= 0);
