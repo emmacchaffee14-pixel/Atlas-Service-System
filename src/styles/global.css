@@ -2682,3 +2682,47 @@ tbody tr.subrow:hover td {
   color: var(--water);
   font-size: 17px;
 }
+
+th.soft,
+td.soft {
+  color: var(--soft);
+  font-weight: 400;
+}
+
+/* Impact by metric */
+.impact {
+  border-bottom: 1px solid var(--rule);
+}
+.impact summary {
+  display: grid;
+  grid-template-columns: 110px 1fr auto;
+  align-items: baseline;
+  gap: 16px;
+  padding: 14px 2px;
+  cursor: pointer;
+  list-style: none;
+}
+.impact summary::-webkit-details-marker {
+  display: none;
+}
+.impact-num {
+  font-family: var(--serif);
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--water);
+  font-variant-numeric: tabular-nums;
+}
+.impact-name {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.impact-meta {
+  font-size: 13px;
+  color: var(--soft);
+}
+.impact table {
+  margin: 0 0 14px;
+}

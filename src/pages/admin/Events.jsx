@@ -335,6 +335,24 @@ export default function Events() {
     { claimed: 0, capacity: 0, logsCount: 0, hours: 0, reported: 0, verified: 0 },
   )
 
+  // Verified impact grouped by metric ("Meals Cooked", "Books Donated"…), so
+  // two partners sharing a metric roll into one figure. Per-event averages are
+  // added across events — never the raw sum of member answers.
+  const impactGroups = useMemo(() => {
+    const by = new Map()
+    eventRows.forEach(({ ev, stats }) => {
+      const org = orgsById.get(ev.org_id)
+      const metric = (org?.impact_metric || '').trim()
+      if (!metric || !stats.verified) return
+      const key = metric.toLowerCase()
+      if (!by.has(key)) by.set(key, { metric, total: 0, events: [] })
+      const g = by.get(key)
+      g.total += stats.verified
+      g.events.push({ ev, org, verified: stats.verified, logs: stats.logsCount })
+    })
+    return [...by.values()].sort((a, b) => b.total - a.total)
+  }, [eventRows, orgsById])
+
   const partnerRows = useMemo(() => {
     const by = new Map()
     eventRows.forEach(({ ev, stats }) => {
@@ -713,6 +731,49 @@ export default function Events() {
       {tab === 'results' && (
         <section>
           <div className="plate">
+            <h2>Impact by Metric</h2>
+            <span>verified — per-event averages</span>
+          </div>
+          {impactGroups.length === 0 ? (
+            <p className="empty">No verified impact yet — it fills in once approved service logs report a quantity.</p>
+          ) : (
+            <div className="impact-groups">
+              {impactGroups.map((g) => (
+                <details className="impact" key={g.metric}>
+                  <summary>
+                    <span className="impact-num">{g.total}</span>
+                    <span className="impact-name">{g.metric}</span>
+                    <span className="impact-meta">
+                      {g.events.length} event{g.events.length === 1 ? '' : 's'} ·{' '}
+                      {new Set(g.events.map((e) => e.ev.org_id)).size} partner
+                      {new Set(g.events.map((e) => e.ev.org_id)).size === 1 ? '' : 's'}
+                    </span>
+                  </summary>
+                  <table>
+                    <tbody>
+                      {g.events
+                        .sort((a, b) => a.ev.event_date.localeCompare(b.ev.event_date))
+                        .map(({ ev, org, verified, logs: n }) => (
+                          <tr key={ev.id}>
+                            <td>{org?.name || ev.org_id}</td>
+                            <td>{fmtDate(ev.event_date)}</td>
+                            <td className="n soft">{n} log{n === 1 ? '' : 's'}</td>
+                            <td className="n">
+                              <b>{verified}</b>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </details>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+      {tab === 'results' && (
+        <section>
+          <div className="plate">
             <h2>By Event</h2>
           </div>
           <div className="scroll">
@@ -724,9 +785,10 @@ export default function Events() {
                   <th className="n">Claimed</th>
                   <th className="n">Logs</th>
                   <th className="n">Hours</th>
-                  <th className="n">Reported</th>
-                  <th className="n">Verified</th>
+                  <th className="n">Impact</th>
+                  <th>Metric</th>
                   <th className="n">Show Rate</th>
+                  <th className="n soft">Raw Sum</th>
                 </tr>
               </thead>
               <tbody>
@@ -737,10 +799,15 @@ export default function Events() {
                     <td className="n">{stats.claimed}</td>
                     <td className="n">{stats.logsCount}</td>
                     <td className="n">{stats.hours}</td>
-                    <td className="n">{stats.reported}</td>
-                    <td className="n">{stats.verified}</td>
+                    <td className="n">
+                      <b>{stats.verified}</b>
+                    </td>
+                    <td>{orgsById.get(ev.org_id)?.impact_metric || '—'}</td>
                     <td className="n">
                       {stats.claimed ? `${Math.round((stats.logsCount / stats.claimed) * 100)}%` : '—'}
+                    </td>
+                    <td className="n soft" title="Every member's answer added together — double-counts a shared group total">
+                      {stats.reported}
                     </td>
                   </tr>
                 ))}
@@ -750,18 +817,20 @@ export default function Events() {
                   <td className="n">{totals.claimed}</td>
                   <td className="n">{totals.logsCount}</td>
                   <td className="n">{round(totals.hours)}</td>
-                  <td className="n">{totals.reported}</td>
                   <td className="n">{totals.verified}</td>
+                  <td></td>
                   <td className="n">
                     {totals.claimed ? `${Math.round((totals.logsCount / totals.claimed) * 100)}%` : '—'}
                   </td>
+                  <td></td>
                 </tr>
               </tbody>
             </table>
           </div>
           <p className="note">
-            Reported adds up every member&rsquo;s answer, which double-counts a shared group total.
-            Verified is the per-event average. Archived events are included.
+            Impact is the per-event average of what members reported, so a group total that six people
+            each report as 120 counts once as 120, not 720. Raw Sum (grey) is every answer added
+            together, shown only for transparency. Archived events are included.
           </p>
         </section>
       )}
