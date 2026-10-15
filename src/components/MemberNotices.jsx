@@ -52,7 +52,7 @@ export default function MemberNotices({ decisions, reminders, label, refresh }) 
                     {l.status === 'approved' ? 'Approved' : 'Declined'}
                   </span>{' '}
                   {label(l.event_id)} — {String(l.hours)} hr{Number(l.hours) === 1 ? '' : 's'}
-                  {l.status === 'declined' && <small> Check with the service chair, then log it again.</small>}
+                  {l.status === 'declined' && <small> Replace your file under My Standing to resubmit it.</small>}
                 </li>
               ))}
             </ul>

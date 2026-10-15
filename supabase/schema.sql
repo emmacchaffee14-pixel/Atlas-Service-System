@@ -896,3 +896,34 @@ alter table events add column if not exists notes text;
 -- member reports is wrong (e.g. everyone reported their own share). Null =
 -- use the computed average. Feeds every rollup, since they all read verified.
 alter table events add column if not exists impact_override numeric check (impact_override >= 0);
+
+-- ── Officer-credited hours + member resubmission ───────────────────
+-- credited_by: set when an officer files a log on a member's behalf (e.g. a
+-- book-drive checklist). cap_exempt: those hours skip the one-hour book-drive
+-- cap. Officers insert these through the existing logs_admin policy.
+alter table service_logs add column if not exists credited_by text;
+alter table service_logs add column if not exists cap_exempt boolean not null default false;
+
+-- A member may swap the proof file on their own log while it is still pending
+-- or was declined; that sends it back to the review queue. Goes through a
+-- function rather than an update policy so nothing else on the row (hours,
+-- status of an approved log, quantity) can be touched.
+create or replace function resubmit_log(p_log_id bigint, p_proof_path text)
+returns boolean language plpgsql security definer set search_path = public as $$
+declare
+  v_email text := me();
+begin
+  if v_email is null or p_proof_path is null or p_proof_path = '' then
+    return false;
+  end if;
+  -- The file must sit in the member's own storage folder.
+  if split_part(p_proof_path, '/', 1) <> v_email then
+    return false;
+  end if;
+  update service_logs
+     set proof_path = p_proof_path, status = 'pending', seen_at = null
+   where id = p_log_id and member_email = v_email and status in ('pending', 'declined');
+  return found;
+end $$;
+revoke execute on function resubmit_log(bigint, text) from public, anon;
+grant execute on function resubmit_log(bigint, text) to authenticated;

@@ -4,14 +4,24 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { supabase } from '../../lib/supabaseClient.js'
 import { fmtDate } from '../../lib/format.js'
 import { signedProofUrl } from '../../lib/proofUpload.js'
-import { keyOf } from '../../lib/stats.js'
+import { isAdos, keyOf, swabCap } from '../../lib/stats.js'
+import AssignMembers from '../../components/AssignMembers.jsx'
 
 // Review queue: a member's hours only count once a log is approved here.
 export default function ServiceLogs() {
-  const { roster, orgs, events, allLogs, refresh } = useAdminData()
+  const { roster, mentors, orgs, events, allLogs, settings, officerEmail, refresh } = useAdminData()
   const toast = useToast()
   const [view, setView] = useState('pending')
   const [busy, setBusy] = useState(null)
+  const [creditEvent, setCreditEvent] = useState('')
+  const [creditPick, setCreditPick] = useState([])
+  const [creditHours, setCreditHours] = useState('1')
+  const [exempt, setExempt] = useState(false)
+
+  const adosEvents = useMemo(
+    () => events.filter(isAdos).sort((a, b) => b.event_date.localeCompare(a.event_date)),
+    [events],
+  )
 
   const rosterByEmail = useMemo(() => new Map(roster.map((r) => [keyOf(r.email), r])), [roster])
   const orgsById = useMemo(() => new Map(orgs.map((o) => [o.id, o])), [orgs])
@@ -57,6 +67,43 @@ export default function ServiceLogs() {
     )
   }
 
+  // Members who already have a log (any status) for the chosen event can't be
+  // credited again from here.
+  const alreadyOn = useMemo(
+    () => allLogs.filter((l) => l.event_id === creditEvent).map((l) => l.member_email),
+    [allLogs, creditEvent],
+  )
+
+  async function creditMembers() {
+    if (!creditEvent || !creditPick.length) return
+    const hrs = Number(creditHours) || 0
+    if (hrs <= 0) return
+    const cap = swabCap(settings)
+    const note = exempt
+      ? `Credit ${hrs} hr to ${creditPick.length} member${creditPick.length === 1 ? '' : 's'}, all counting toward their requirement (the ${cap}-hour book-drive cap is overridden)?`
+      : `Credit ${hrs} hr to ${creditPick.length} member${creditPick.length === 1 ? '' : 's'}? The ${cap}-hour book-drive cap still applies.`
+    if (!window.confirm(note)) return
+    setBusy('credit')
+    const rows = creditPick.map((email) => ({
+      event_id: creditEvent,
+      member_email: email,
+      hours: hrs,
+      status: 'approved',
+      credited_by: officerEmail,
+      cap_exempt: exempt,
+      takeaway: 'Credited by an officer from the book-drive checklist.',
+    }))
+    const { error } = await supabase.from('service_logs').insert(rows)
+    setBusy(null)
+    if (error) {
+      toast('Could not credit those hours. Has the latest SQL been run?')
+      return
+    }
+    setCreditPick([])
+    await refresh()
+    toast(`Credited ${rows.length} member${rows.length === 1 ? '' : 's'}.`)
+  }
+
   async function viewProof(path) {
     try {
       window.open(await signedProofUrl(supabase, path), '_blank', 'noopener')
@@ -84,8 +131,88 @@ export default function ServiceLogs() {
         <button type="button" className={'tab' + (view === 'reviewed' ? ' on' : '')} onClick={() => setView('reviewed')}>
           Reviewed
         </button>
+        <button type="button" className={'tab' + (view === 'credit' ? ' on' : '')} onClick={() => setView('credit')}>
+          Credit Hours
+        </button>
       </div>
 
+      {view === 'credit' && (
+        <section style={{ marginTop: 24 }}>
+          <p className="note" style={{ marginBottom: 14 }}>
+            Check off the members on your book-drive list and credit them without a log. Each
+            becomes an approved log and gets a notice next time they sign in.
+          </p>
+          {adosEvents.length === 0 ? (
+            <p className="empty">There are no ADOS book-drive events yet.</p>
+          ) : (
+            <>
+              <div className="fields">
+                <div>
+                  <label htmlFor="crEvent">Event</label>
+                  <select
+                    id="crEvent"
+                    value={creditEvent}
+                    onChange={(e) => {
+                      setCreditEvent(e.target.value)
+                      setCreditPick([])
+                    }}
+                  >
+                    <option value="">Choose an event</option>
+                    {adosEvents.map((ev) => (
+                      <option key={ev.id} value={ev.id}>
+                        {orgsById.get(ev.org_id)?.name || ev.org_id} — {fmtDate(ev.event_date)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="crHours">Hours to credit</label>
+                  <select id="crHours" value={creditHours} onChange={(e) => setCreditHours(e.target.value)}>
+                    {Array.from({ length: 8 }, (_, i) => i + 1).map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <label className="vis-opt" style={{ margin: '14px 0' }}>
+                <input type="checkbox" checked={exempt} onChange={(e) => setExempt(e.target.checked)} />
+                <span>
+                  <b>Count all of these hours</b>
+                  <small>
+                    Override the {swabCap(settings)}-hour book-drive cap, so the full credit counts toward the
+                    requirement.
+                  </small>
+                </span>
+              </label>
+              {creditEvent && (
+                <>
+                  <AssignMembers
+                    roster={roster}
+                    mentors={mentors}
+                    selected={creditPick}
+                    onChange={setCreditPick}
+                    already={alreadyOn}
+                  />
+                  <div className="formfoot">
+                    <button
+                      type="button"
+                      className="btn"
+                      disabled={!creditPick.length || busy === 'credit'}
+                      onClick={creditMembers}
+                    >
+                      Credit {creditPick.length || ''} Member{creditPick.length === 1 ? '' : 's'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+        </section>
+      )}
+
+      {view !== 'credit' && (
       <section style={{ marginTop: 24 }}>
         {rows.length === 0 ? (
           <p className="empty">{view === 'pending' ? 'You are all caught up.' : 'No reviewed logs yet.'}</p>
@@ -182,6 +309,7 @@ export default function ServiceLogs() {
           </>
         )}
       </section>
+      )}
     </>
   )
 }

@@ -36,7 +36,8 @@ export function computeMemberStats(email, { logs, signups, eventsById, settings 
   mine.forEach((l) => {
     const h = Number(l.hours) || 0
     total += h
-    if (isAdos(eventsById.get(l.event_id))) swab += h
+    // cap_exempt: an officer credited these hours past the book-drive cap.
+    if (isAdos(eventsById.get(l.event_id)) && !l.cap_exempt) swab += h
   })
   const countable = round(total - Math.max(0, swab - swabCap(settings)))
   return {

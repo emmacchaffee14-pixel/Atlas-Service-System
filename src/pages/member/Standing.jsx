@@ -1,16 +1,45 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useMemberData } from '../../context/MemberDataContext.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import { supabase } from '../../lib/supabaseClient.js'
 import { fmtDate, fmtTimeRange } from '../../lib/format.js'
-import { signedProofUrl } from '../../lib/proofUpload.js'
+import { PROOF_ACCEPT, signedProofUrl, uploadProof, validateProofFile } from '../../lib/proofUpload.js'
 import Ring from '../../components/Ring.jsx'
 import { computeMemberStats, groupOf, keyOf, mentorName, reqHours, round, swabCap } from '../../lib/stats.js'
 
 export default function Standing() {
-  const { orgs, allEvents: events, signups, logs, mentors, me, settings, myEmail } = useMemberData()
+  const { orgs, allEvents: events, signups, logs, mentors, me, settings, myEmail, refresh } = useMemberData()
   const toast = useToast()
   const [openingId, setOpeningId] = useState(null)
+
+  const fileRef = useRef(null)
+  const [replaceFor, setReplaceFor] = useState(null)
+
+  // Swap the proof file on a pending or declined log; it goes back to review.
+  async function replaceProof(file) {
+    const log = replaceFor
+    setReplaceFor(null)
+    if (!file || !log) return
+    const problem = validateProofFile(file)
+    if (problem) {
+      toast(problem)
+      return
+    }
+    setOpeningId(log.id)
+    try {
+      const path = await uploadProof(supabase, myEmail, file)
+      const { data, error } = await supabase.rpc('resubmit_log', { p_log_id: log.id, p_proof_path: path })
+      if (error || !data) throw error || new Error('refused')
+      // Best effort: remove the file it replaced (own folder only).
+      if (log.proof_path) supabase.storage.from('service-proofs').remove([log.proof_path])
+      await refresh()
+      toast('New file sent. An officer will review it.')
+    } catch {
+      toast('Could not replace that file. Try again.')
+    } finally {
+      setOpeningId(null)
+    }
+  }
 
   async function viewProof(logId, path) {
     setOpeningId(logId)
@@ -202,6 +231,19 @@ export default function Standing() {
                         ) : (
                           '—'
                         )}
+                        {l.status !== 'approved' && (
+                          <button
+                            className="btn ghost sm"
+                            style={{ marginLeft: 6 }}
+                            disabled={openingId === l.id}
+                            onClick={() => {
+                              setReplaceFor(l)
+                              fileRef.current?.click()
+                            }}
+                          >
+                            {l.status === 'declined' ? 'Resubmit' : 'Replace File'}
+                          </button>
+                        )}
                       </td>
                       <td>
                         <span className={'tag' + (l.status === 'approved' ? ' ok' : l.status === 'declined' ? ' no' : '')}>
@@ -216,6 +258,16 @@ export default function Standing() {
           </div>
         )}
       </section>
+      <input
+        ref={fileRef}
+        type="file"
+        accept={PROOF_ACCEPT}
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          replaceProof(e.target.files?.[0] || null)
+          e.target.value = ''
+        }}
+      />
     </>
   )
 }
