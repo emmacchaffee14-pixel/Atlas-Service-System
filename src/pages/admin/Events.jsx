@@ -409,6 +409,7 @@ export default function Events() {
   const directory = useMemo(() => {
     const norm = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]/g, '')
     const host = (u) => {
+      if (!u || !String(u).trim()) return ''
       try {
         return new URL(/^https?:/i.test(u) ? u : `https://${u}`).hostname.replace(/^www\./, '')
       } catch {
