@@ -942,3 +942,43 @@ do $$ begin
     update events set impact_mode = 'sum' where org_id = 'ados';
   end if;
 end $$;
+
+-- ── Member edit / withdraw of their own logs ───────────────────────
+-- A member can correct hours, the quantity or the takeaway on a log that is
+-- still pending or was declined, or withdraw it entirely. Both go through
+-- functions (not update/delete policies) so approved logs and every other
+-- column stay untouchable. An edit goes back to the review queue, flagged.
+alter table service_logs add column if not exists edited_at timestamptz;
+
+create or replace function edit_log(p_log_id bigint, p_hours numeric, p_quantity numeric, p_takeaway text)
+returns boolean language plpgsql security definer set search_path = public as $$
+begin
+  if me() is null or p_hours is null or p_hours <= 0 or p_hours > 12
+     or (p_quantity is not null and p_quantity < 0) then
+    return false;
+  end if;
+  update service_logs
+     set hours = p_hours, quantity = p_quantity, takeaway = nullif(btrim(p_takeaway), ''),
+         status = 'pending', seen_at = null, edited_at = now()
+   where id = p_log_id and member_email = me() and status in ('pending', 'declined');
+  return found;
+end $$;
+revoke execute on function edit_log(bigint, numeric, numeric, text) from public, anon;
+grant execute on function edit_log(bigint, numeric, numeric, text) to authenticated;
+
+-- Returns the proof file path so the app can remove it from storage, or null.
+create or replace function withdraw_log(p_log_id bigint)
+returns text language plpgsql security definer set search_path = public as $$
+declare
+  v_path text;
+begin
+  delete from service_logs
+   where id = p_log_id and member_email = me() and status in ('pending', 'declined')
+  returning coalesce(proof_path, '') into v_path;
+  if not found then
+    return null;
+  end if;
+  return v_path;
+end $$;
+revoke execute on function withdraw_log(bigint) from public, anon;
+grant execute on function withdraw_log(bigint) to authenticated;

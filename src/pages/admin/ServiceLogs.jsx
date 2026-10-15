@@ -249,7 +249,10 @@ export default function ServiceLogs() {
                 <tbody>
                   {rows.map(({ log, member, event, metric }) => (
                     <tr key={log.id}>
-                      <td>{member}</td>
+                      <td>
+                        {member}
+                        {log.edited_at && log.status === 'pending' && <em className="cu-pill">Edited</em>}
+                      </td>
                       <td>{event}</td>
                       <td className="n">{String(log.hours)}</td>
                       <td className="n">

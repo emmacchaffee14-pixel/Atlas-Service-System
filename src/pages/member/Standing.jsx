@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useMemberData } from '../../context/MemberDataContext.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import { supabase } from '../../lib/supabaseClient.js'
@@ -11,6 +12,53 @@ export default function Standing() {
   const { orgs, allEvents: events, signups, logs, mentors, me, settings, myEmail, refresh } = useMemberData()
   const toast = useToast()
   const [openingId, setOpeningId] = useState(null)
+
+  const [editing, setEditing] = useState(null)
+  const [edit, setEdit] = useState({ hours: '1', quantity: '', takeaway: '', saving: false })
+
+  function openEdit(l) {
+    setEditing(l)
+    setEdit({
+      hours: String(l.hours),
+      quantity: l.quantity == null ? '' : String(l.quantity),
+      takeaway: l.takeaway || '',
+      saving: false,
+    })
+  }
+
+  async function saveEdit(e) {
+    e.preventDefault()
+    if (!editing) return
+    setEdit((f) => ({ ...f, saving: true }))
+    const { data, error } = await supabase.rpc('edit_log', {
+      p_log_id: editing.id,
+      p_hours: Number(edit.hours),
+      p_quantity: edit.quantity === '' ? null : Number(edit.quantity),
+      p_takeaway: edit.takeaway,
+    })
+    if (error || !data) {
+      setEdit((f) => ({ ...f, saving: false }))
+      toast('Could not save that. Try again.')
+      return
+    }
+    setEditing(null)
+    await refresh()
+    toast('Saved. An officer will review it.')
+  }
+
+  async function withdraw(l) {
+    if (!window.confirm('Withdraw this log? It will be removed and you can file a new one.')) return
+    setOpeningId(l.id)
+    const { data, error } = await supabase.rpc('withdraw_log', { p_log_id: l.id })
+    setOpeningId(null)
+    if (error || data == null) {
+      toast('Could not withdraw that.')
+      return
+    }
+    if (data) supabase.storage.from('service-proofs').remove([data])
+    await refresh()
+    toast('Log withdrawn.')
+  }
 
   const fileRef = useRef(null)
   const [replaceFor, setReplaceFor] = useState(null)
@@ -74,6 +122,8 @@ export default function Standing() {
     () => signups.filter((s) => keyOf(s.member_email) === keyOf(myEmail)),
     [signups, myEmail],
   )
+  const editingEvent = editing ? eventsById.get(editing.event_id) : null
+  const editingOrg = editingEvent ? orgsById.get(editingEvent.org_id) : null
   const myLogs = useMemo(
     () => logs.filter((l) => keyOf(l.member_email) === keyOf(myEmail)),
     [logs, myEmail],
@@ -160,104 +210,165 @@ export default function Standing() {
         {myClaims.length === 0 ? (
           <p className="empty">Nothing claimed yet. Open Opportunities to pick a slot.</p>
         ) : (
-          <div className="scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Event</th>
-                  <th>Date</th>
-                  <th>Time</th>
-                  <th>Transportation</th>
-                </tr>
-              </thead>
-              <tbody>
-                {myClaims.map((s) => {
-                  const ev = eventsById.get(s.event_id)
-                  if (!ev) return null
-                  const org = orgsById.get(ev.org_id)
-                  return (
-                    <tr key={s.id}>
-                      <td>{org?.name || ev.org_id}</td>
-                      <td>{fmtDate(ev.event_date)}</td>
-                      <td>{fmtTimeRange(ev.start_time, ev.end_time)}</td>
-                      <td>{s.transportation ? 'Yes' : 'No'}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+          <ul className="mlist">
+            {myClaims.map((s) => {
+              const ev = eventsById.get(s.event_id)
+              if (!ev) return null
+              const org = orgsById.get(ev.org_id)
+              return (
+                <li key={s.id}>
+                  <div className="mlist-main">
+                    <b>{org?.name || ev.org_id}</b>
+                    <span>
+                      {fmtDate(ev.event_date)} · {fmtTimeRange(ev.start_time, ev.end_time)}
+                    </span>
+                  </div>
+                  {s.transportation && <span className="tag">Ride requested</span>}
+                </li>
+              )
+            })}
+          </ul>
         )}
       </section>
 
       <section>
         <div className="plate">
           <h2>Service You Have Logged</h2>
+          <Link to="/member/log" className="btn sm">
+            Log Service
+          </Link>
         </div>
         {myLogs.length === 0 ? (
           <p className="empty">No hours logged yet.</p>
         ) : (
-          <div className="scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Event</th>
-                  <th className="n">Hours</th>
-                  <th>Impact Metric</th>
-                  <th className="n">Reported</th>
-                  <th>Proof</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {myLogs.map((l) => {
-                  const ev = eventsById.get(l.event_id)
-                  const org = ev ? orgsById.get(ev.org_id) : null
-                  return (
-                    <tr key={l.id}>
-                      <td>{ev ? `${org?.name || ev.org_id} — ${fmtDate(ev.event_date)}` : l.event_id}</td>
-                      <td className="n">{String(l.hours)}</td>
-                      <td>{org?.impact_metric || '—'}</td>
-                      <td className="n">{l.quantity == null ? '' : String(l.quantity)}</td>
-                      <td>
-                        {l.proof_path ? (
-                          <button
-                            className="btn ghost sm"
-                            disabled={openingId === l.id}
-                            onClick={() => viewProof(l.id, l.proof_path)}
-                          >
-                            View
-                          </button>
-                        ) : (
-                          '—'
-                        )}
-                        {l.status !== 'approved' && (
-                          <button
-                            className="btn ghost sm"
-                            style={{ marginLeft: 6 }}
-                            disabled={openingId === l.id}
-                            onClick={() => {
-                              setReplaceFor(l)
-                              fileRef.current?.click()
-                            }}
-                          >
-                            {l.status === 'declined' ? 'Resubmit' : 'Replace File'}
-                          </button>
-                        )}
-                      </td>
-                      <td>
-                        <span className={'tag' + (l.status === 'approved' ? ' ok' : l.status === 'declined' ? ' no' : '')}>
-                          {l.status === 'approved' ? 'Approved' : l.status === 'declined' ? 'Declined' : 'Pending'}
-                        </span>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+          <ul className="mlist logs">
+            {myLogs.map((l) => {
+              const ev = eventsById.get(l.event_id)
+              const org = ev ? orgsById.get(ev.org_id) : null
+              const editable = l.status === 'pending' || l.status === 'declined'
+              const busy = openingId === l.id
+              return (
+                <li key={l.id}>
+                  <div className="mlist-row">
+                    <div className="mlist-main">
+                      <b>{ev ? org?.name || ev.org_id : l.event_id}</b>
+                      <span>
+                        {ev ? fmtDate(ev.event_date) + ' · ' : ''}
+                        {String(l.hours)} hr{Number(l.hours) === 1 ? '' : 's'}
+                        {l.quantity != null && org?.impact_metric
+                          ? ` · ${l.quantity} ${org.impact_metric.toLowerCase()}`
+                          : ''}
+                      </span>
+                    </div>
+                    <span className={'tag' + (l.status === 'approved' ? ' ok' : l.status === 'declined' ? ' no' : '')}>
+                      {l.status === 'approved' ? 'Approved' : l.status === 'declined' ? 'Declined' : 'Pending'}
+                    </span>
+                  </div>
+                  {l.status === 'declined' && (
+                    <p className="mlist-note">Declined. Fix what was wrong and resubmit, or withdraw it.</p>
+                  )}
+                  {l.status === 'pending' && l.edited_at && <p className="mlist-note">Edited — waiting for review.</p>}
+                  <div className="mlist-actions">
+                    {l.proof_path && (
+                      <button className="btn ghost sm" disabled={busy} onClick={() => viewProof(l.id, l.proof_path)}>
+                        View File
+                      </button>
+                    )}
+                    {editable && (
+                      <>
+                        <button className="btn ghost sm" disabled={busy} onClick={() => openEdit(l)}>
+                          Edit
+                        </button>
+                        <button
+                          className="btn ghost sm"
+                          disabled={busy}
+                          onClick={() => {
+                            setReplaceFor(l)
+                            fileRef.current?.click()
+                          }}
+                        >
+                          {l.status === 'declined' ? 'Resubmit File' : 'Replace File'}
+                        </button>
+                        <button className="btn warn sm" disabled={busy} onClick={() => withdraw(l)}>
+                          Withdraw
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
         )}
       </section>
+
+      {editing && (
+        <div className="cal-overlay sheet" onClick={() => setEditing(null)}>
+          <form
+            className="cal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Edit service log"
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={saveEdit}
+          >
+            <button type="button" className="cal-close" aria-label="Close" onClick={() => setEditing(null)}>
+              &times;
+            </button>
+            <h3>Edit Your Log</h3>
+            <p className="note">Saving sends it back to an officer for review.</p>
+            <div className="fields">
+              <div>
+                <label htmlFor="edHours">Hours served</label>
+                <select
+                  id="edHours"
+                  value={edit.hours}
+                  onChange={(e) => setEdit((f) => ({ ...f, hours: e.target.value }))}
+                >
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="edQty">
+                  {editingOrg?.impact_metric ? `How many ${editingOrg.impact_metric.toLowerCase()}?` : 'How many?'}
+                  <small>
+                    {editingEvent?.impact_mode === 'sum'
+                      ? 'Only what you personally brought or donated.'
+                      : 'Report the group total if you worked as a group.'}
+                  </small>
+                </label>
+                <input
+                  id="edQty"
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  value={edit.quantity}
+                  onChange={(e) => setEdit((f) => ({ ...f, quantity: e.target.value }))}
+                />
+              </div>
+              <div className="span2">
+                <label htmlFor="edTake">Takeaway</label>
+                <textarea
+                  id="edTake"
+                  rows="3"
+                  value={edit.takeaway}
+                  onChange={(e) => setEdit((f) => ({ ...f, takeaway: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="formfoot">
+              <button className="btn" type="submit" disabled={edit.saving}>
+                Save &amp; Resubmit
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       <input
         ref={fileRef}
         type="file"
