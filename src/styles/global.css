@@ -2847,3 +2847,14 @@ td.soft {
     opacity: 0;
   }
 }
+
+.hrs {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+.hrs input {
+  width: 76px;
+  text-align: right;
+}

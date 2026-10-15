@@ -268,6 +268,12 @@ export default function Standing() {
                     <p className="mlist-note">Declined. Fix what was wrong and resubmit, or withdraw it.</p>
                   )}
                   {l.status === 'pending' && l.edited_at && <p className="mlist-note">Edited — waiting for review.</p>}
+                  {l.requested_hours != null && Number(l.requested_hours) !== Number(l.hours) && (
+                    <p className="mlist-note">
+                      An officer adjusted the hours from {String(l.requested_hours)} to {String(l.hours)}.
+                      {l.quantity != null && org?.impact_metric ? ` Your ${org.impact_metric.toLowerCase()} count still stands.` : ''}
+                    </p>
+                  )}
                   <div className="mlist-actions">
                     {l.proof_path && (
                       <button className="btn ghost sm" disabled={busy} onClick={() => viewProof(l.id, l.proof_path)}>

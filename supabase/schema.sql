@@ -982,3 +982,11 @@ begin
 end $$;
 revoke execute on function withdraw_log(bigint) from public, anon;
 grant execute on function withdraw_log(bigint) to authenticated;
+
+-- ── Officer-adjusted hours ─────────────────────────────────────────
+-- While reviewing, an officer can change a log's hours (e.g. a member asks
+-- for 3 hours for a book drive but only 1 hour of service is credited, while
+-- the number of books still counts in full). requested_hours keeps what the
+-- member originally asked for. Officers already have update rights through
+-- logs_admin; members can't touch this column.
+alter table service_logs add column if not exists requested_hours numeric;

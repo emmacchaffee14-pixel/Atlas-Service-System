@@ -38,6 +38,7 @@ export default function ServiceLogs() {
             member: rosterByEmail.get(keyOf(l.member_email))?.full_name || l.member_email,
             event: ev ? `${orgsById.get(ev.org_id)?.name || ev.org_id} — ${fmtDate(ev.event_date)}` : l.event_id,
             metric: ev ? orgsById.get(ev.org_id)?.impact_metric : '',
+            ados: isAdos(ev),
           }
         })
         .sort((a, b) =>
@@ -102,6 +103,30 @@ export default function ServiceLogs() {
     setCreditPick([])
     await refresh()
     toast(`Credited ${rows.length} member${rows.length === 1 ? '' : 's'}.`)
+  }
+
+  // Change the hours credited for a log. The member's original request is
+  // kept the first time it's changed, so it stays visible and the change is
+  // visible to them too.
+  async function setHours(log, raw) {
+    const next = Math.round(Number(raw) * 2) / 2
+    if (!next || next <= 0 || next > 12) {
+      toast('Hours must be between 0.5 and 12.')
+      await refresh()
+      return
+    }
+    if (next === Number(log.hours)) return
+    setBusy(log.id)
+    const { error } = await supabase
+      .from('service_logs')
+      .update({ hours: next, requested_hours: log.requested_hours ?? log.hours })
+      .eq('id', log.id)
+    setBusy(null)
+    if (error) {
+      toast('Could not change the hours. Has the latest SQL been run?')
+      return
+    }
+    await refresh()
   }
 
   async function viewProof(path) {
@@ -247,14 +272,47 @@ export default function ServiceLogs() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map(({ log, member, event, metric }) => (
+                  {rows.map(({ log, member, event, metric, ados }) => (
                     <tr key={log.id}>
                       <td>
                         {member}
                         {log.edited_at && log.status === 'pending' && <em className="cu-pill">Edited</em>}
                       </td>
                       <td>{event}</td>
-                      <td className="n">{String(log.hours)}</td>
+                      <td className="n">
+                        {view === 'pending' ? (
+                          <div className="hrs">
+                            <input
+                              key={`h-${log.id}-${log.hours}`}
+                              type="number"
+                              min="0.5"
+                              max="12"
+                              step="0.5"
+                              inputMode="decimal"
+                              defaultValue={String(log.hours)}
+                              disabled={busy === log.id}
+                              onBlur={(e) => setHours(log, e.target.value)}
+                              aria-label="Hours credited"
+                            />
+                            {ados && Number(log.hours) > swabCap(settings) && (
+                              <button
+                                type="button"
+                                className="linkbtn small inline"
+                                onClick={() => setHours(log, swabCap(settings))}
+                              >
+                                Cap to {swabCap(settings)}
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          String(log.hours)
+                        )}
+                        {log.requested_hours != null && Number(log.requested_hours) !== Number(log.hours) && (
+                          <small className="soft" style={{ display: 'block' }}>
+                            asked for {String(log.requested_hours)}
+                          </small>
+                        )}
+                      </td>
                       <td className="n">
                         {log.quantity == null ? '—' : `${log.quantity}${metric ? ` ${metric.toLowerCase()}` : ''}`}
                       </td>
