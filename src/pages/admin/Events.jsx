@@ -12,6 +12,7 @@ const TABS = [
   ['rides', 'Rides'],
   ['signups', 'Sign-Ups'],
   ['results', 'Results'],
+  ['partners', 'Partners'],
   ['archive', 'Archive'],
   ['add', '+ Add Event'],
 ]
@@ -51,6 +52,8 @@ export default function Events() {
   const { roster, mentors, orgs, events, signups, logs, allLogs, nominations, refresh } = useAdminData()
   const [assignFor, setAssignFor] = useState(null) // event being assigned to, from the table
   const [assignPick, setAssignPick] = useState([])
+  const [mergeFrom, setMergeFrom] = useState(null)
+  const [mergeInto, setMergeInto] = useState('')
   const toast = useToast()
   const [rowBusy, setRowBusy] = useState(null)
   const [newEvent, setNewEvent] = useState(NEW_EVENT_INITIAL)
@@ -237,6 +240,52 @@ export default function Events() {
     toast(`${name} removed.`)
   }
 
+  async function setPartnerActive(org, active) {
+    setRowBusy('bulk')
+    const { error } = await supabase.from('orgs').update({ active }).eq('id', org.id)
+    setRowBusy(null)
+    if (error) {
+      toast('Could not update that partner.')
+      return
+    }
+    await refresh()
+    toast(active ? `${org.name} restored.` : `${org.name} archived.`)
+  }
+
+  async function deletePartner(org) {
+    if (!window.confirm(`Permanently delete ${org.name}? This cannot be undone.`)) return
+    setRowBusy('bulk')
+    const { error } = await supabase.from('orgs').delete().eq('id', org.id)
+    setRowBusy(null)
+    if (error) {
+      toast('Could not delete that partner. It may still have events — merge or archive it instead.')
+      return
+    }
+    await refresh()
+    toast('Partner deleted.')
+  }
+
+  // Duplicates: move everything onto the partner you keep, then remove this one.
+  async function mergePartner() {
+    if (!mergeFrom || !mergeInto) return
+    const target = orgs.find((o) => o.id === mergeInto)
+    if (!window.confirm(`Move all of ${mergeFrom.name}'s events into ${target?.name}, then delete ${mergeFrom.name}?`)) return
+    setRowBusy('bulk')
+    const moved = await supabase.from('events').update({ org_id: mergeInto }).eq('org_id', mergeFrom.id)
+    if (moved.error) {
+      setRowBusy(null)
+      toast('Could not move the events. Nothing was deleted.')
+      return
+    }
+    await supabase.from('contacts').update({ org_id: mergeInto }).eq('org_id', mergeFrom.id)
+    const { error } = await supabase.from('orgs').delete().eq('id', mergeFrom.id)
+    setRowBusy(null)
+    setMergeFrom(null)
+    setMergeInto('')
+    await refresh()
+    toast(error ? 'Events moved, but the old partner could not be deleted.' : 'Merged.')
+  }
+
   async function assignToExisting() {
     if (!assignFor || !assignPick.length) return
     setRowBusy('bulk')
@@ -353,6 +402,44 @@ export default function Events() {
     })
     return [...by.values()].sort((a, b) => b.total - a.total)
   }, [eventRows, orgsById])
+
+  // Partner directory: every org with how much it's used, and a flag when two
+  // look like the same organization (same name ignoring punctuation/case, or
+  // the same website host).
+  const directory = useMemo(() => {
+    const norm = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+    const host = (u) => {
+      try {
+        return new URL(/^https?:/i.test(u) ? u : `https://${u}`).hostname.replace(/^www\./, '')
+      } catch {
+        return ''
+      }
+    }
+    const rows = orgs.map((o) => {
+      const mine = events.filter((e) => e.org_id === o.id)
+      const dates = mine.map((e) => e.event_date).sort()
+      return {
+        org: o,
+        count: mine.length,
+        last: dates[dates.length - 1] || '',
+        dupOf: null,
+      }
+    })
+    rows.forEach((r) => {
+      const twin = rows.find(
+        (x) =>
+          x.org.id !== r.org.id &&
+          ((norm(x.org.name) && norm(x.org.name) === norm(r.org.name)) ||
+            (host(x.org.website) && host(x.org.website) === host(r.org.website))),
+      )
+      if (twin) r.dupOf = twin.org.name
+    })
+    return rows.sort(
+      (a, b) =>
+        Number(a.org.active === false) - Number(b.org.active === false) ||
+        a.org.name.localeCompare(b.org.name),
+    )
+  }, [orgs, events])
 
   const partnerRows = useMemo(() => {
     const by = new Map()
@@ -869,6 +956,98 @@ export default function Events() {
           </p>
         </section>
       )}
+      {tab === 'partners' && (
+        <section>
+          <div className="plate">
+            <h2>Partners</h2>
+            <span>
+              {directory.filter((r) => r.org.active !== false).length} active ·{' '}
+              {directory.filter((r) => r.org.active === false).length} archived
+            </span>
+          </div>
+          <div className="scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Partner</th>
+                  <th>Impact Metric</th>
+                  <th className="n">Events</th>
+                  <th>Last Event</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {directory.map(({ org, count, last, dupOf }) => (
+                  <tr key={org.id} className={org.active === false ? 'done' : undefined}>
+                    <td>
+                      {org.website ? (
+                        <a href={org.website} target="_blank" rel="noopener noreferrer">
+                          {org.name}
+                        </a>
+                      ) : (
+                        org.name
+                      )}
+                      {count === 0 && <em className="cu-pill soft">Unused</em>}
+                      {dupOf && <em className="cu-pill">Duplicate of {dupOf}?</em>}
+                      {org.active === false && <em className="cu-pill soft">Archived</em>}
+                    </td>
+                    <td>{org.impact_metric || '—'}</td>
+                    <td className="n">{count}</td>
+                    <td>{last ? fmtDate(last) : '—'}</td>
+                    <td>
+                      <div className="access">
+                        {org.active === false ? (
+                          <button
+                            type="button"
+                            className="btn ghost sm"
+                            disabled={rowBusy === 'bulk'}
+                            onClick={() => setPartnerActive(org, true)}
+                          >
+                            Restore
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn ghost sm"
+                            disabled={rowBusy === 'bulk'}
+                            onClick={() => setPartnerActive(org, false)}
+                          >
+                            Archive
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="btn ghost sm"
+                          disabled={rowBusy === 'bulk'}
+                          onClick={() => {
+                            setMergeFrom(org)
+                            setMergeInto('')
+                          }}
+                        >
+                          Merge…
+                        </button>
+                        <button
+                          type="button"
+                          className="btn warn sm"
+                          disabled={rowBusy === 'bulk' || count > 0}
+                          title={count > 0 ? 'Has events — merge it into another partner or archive it instead.' : ''}
+                          onClick={() => deletePartner(org)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="note">
+            Archive hides a partner from the Add Event list but keeps its history. Delete is only for
+            partners with no events. For a duplicate, use Merge to move its events onto the one you keep.
+          </p>
+        </section>
+      )}
       {tab === 'archive' && (
         <section>
           <div className="plate">
@@ -943,7 +1122,7 @@ export default function Events() {
                   required
                 >
                   <option value="">Choose a partner</option>
-                  {orgs.map((o) => (
+                  {orgs.filter((o) => o.active !== false).map((o) => (
                     <option key={o.id} value={o.id}>
                       {o.name}
                     </option>
@@ -1248,6 +1427,35 @@ export default function Events() {
         </section>
       )}
 
+      {mergeFrom && (
+        <div className="cal-overlay" onClick={() => setMergeFrom(null)}>
+          <div className="cal-card" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="cal-close" aria-label="Close" onClick={() => setMergeFrom(null)}>
+              &times;
+            </button>
+            <h3>Merge {mergeFrom.name}</h3>
+            <p className="note">
+              Its events and contacts move onto the partner you pick, then {mergeFrom.name} is deleted.
+            </p>
+            <label htmlFor="mergeInto">Keep this partner</label>
+            <select id="mergeInto" value={mergeInto} onChange={(e) => setMergeInto(e.target.value)}>
+              <option value="">Choose a partner…</option>
+              {orgs
+                .filter((o) => o.id !== mergeFrom.id)
+                .map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.name}
+                  </option>
+                ))}
+            </select>
+            <div className="formfoot">
+              <button className="btn" type="button" disabled={!mergeInto || rowBusy === 'bulk'} onClick={mergePartner}>
+                Merge &amp; Delete {mergeFrom.name}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {assignFor && (
         <div className="cal-overlay" onClick={() => setAssignFor(null)}>
           <div className="cal-card" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
