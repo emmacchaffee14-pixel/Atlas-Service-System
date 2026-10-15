@@ -126,7 +126,11 @@ export default function LogService() {
             <div>
               <label htmlFor="lgQty">
                 {quantityLabel}
-                <small>Report the group total if you worked as a group.</small>
+                <small>
+                  {selectedEvent?.impact_mode === 'sum'
+                    ? 'Count only what you personally brought or donated.'
+                    : 'Report the group total if you worked as a group.'}
+                </small>
               </label>
               <input
                 id="lgQty"

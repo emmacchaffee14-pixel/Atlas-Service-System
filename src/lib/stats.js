@@ -65,7 +65,9 @@ export function computeEventStats(event, { signups, logs }) {
       qn++
     }
   })
-  const calculated = qn ? Math.round(reported / qn) : 0
+  // 'sum' events (donation drives) add every member's own count; the default
+  // averages a shared group total so it isn't double-counted.
+  const calculated = event.impact_mode === 'sum' ? reported : qn ? Math.round(reported / qn) : 0
   // An officer's manual figure wins over the computed average.
   const overridden = event.impact_override != null && event.impact_override !== ''
   return {

@@ -17,7 +17,7 @@ const TABS = [
 ]
 const TAB_KEYS = TABS.map(([k]) => k)
 const NEW_ORG_SENTINEL = '__new__'
-const NEW_EVENT_INITIAL = { orgId: '', date: '', start: '', end: '', capacity: '0', location: '', givepulse: '', notes: '', isPublic: true, assignees: [], nominationId: null }
+const NEW_EVENT_INITIAL = { orgId: '', date: '', start: '', end: '', capacity: '0', location: '', givepulse: '', notes: '', impactMode: 'average', isPublic: true, assignees: [], nominationId: null }
 const NEW_ORG_INITIAL = { name: '', location: '', impactMetric: '', website: '' }
 
 function makeEventId(existingEvents, orgId, date) {
@@ -189,6 +189,7 @@ export default function Events() {
       givepulse_link: newEvent.givepulse.trim() || null,
       // Only sent when filled in, so adding events still works before the notes column exists.
       ...(newEvent.notes.trim() ? { notes: newEvent.notes.trim() } : {}),
+      ...(newEvent.impactMode === 'sum' ? { impact_mode: 'sum' } : {}),
       is_public: newEvent.isPublic,
       status: 'open',
     })
@@ -788,6 +789,7 @@ export default function Events() {
                   <th className="n">Hours</th>
                   <th className="n">Impact</th>
                   <th>Metric</th>
+                  <th>Counted As</th>
                   <th className="n">Show Rate</th>
                   <th className="n soft">Raw Sum</th>
                 </tr>
@@ -822,6 +824,16 @@ export default function Events() {
                       {stats.overridden && <em className="cu-pill">Manual</em>}
                     </td>
                     <td>{orgsById.get(ev.org_id)?.impact_metric || '—'}</td>
+                    <td>
+                      <select
+                        value={ev.impact_mode === 'sum' ? 'sum' : 'average'}
+                        onChange={(e) => updateEvent(ev.id, { impact_mode: e.target.value })}
+                        title="Average: members report one shared group total. Add together: each member reports only their own."
+                      >
+                        <option value="average">Average (group total)</option>
+                        <option value="sum">Add together (each own)</option>
+                      </select>
+                    </td>
                     <td className="n">
                       {stats.claimed ? `${Math.round((stats.logsCount / stats.claimed) * 100)}%` : '—'}
                     </td>
@@ -838,6 +850,7 @@ export default function Events() {
                   <td className="n">{round(totals.hours)}</td>
                   <td className="n">{totals.verified}</td>
                   <td></td>
+                  <td></td>
                   <td className="n">
                     {totals.claimed ? `${Math.round((totals.logsCount / totals.claimed) * 100)}%` : '—'}
                   </td>
@@ -848,7 +861,8 @@ export default function Events() {
           </div>
           <p className="note">
             Impact is the per-event average of what members reported, so a group total that six people
-            each report as 120 counts once as 120, not 720. Raw Sum (grey) is every answer added
+            each report as 120 counts once as 120, not 720. Donation drives like the book drive are set
+            to <b>Add together</b> instead, since every member reports only their own. Raw Sum (grey) is every answer added
             together, shown only for transparency. To fix a wrong figure, type the right number in
             the Impact box — it replaces the average everywhere (Dashboard, metric totals, partners)
             until you clear it. Archived events are included.
@@ -1054,6 +1068,20 @@ export default function Events() {
                   onChange={(e) => setNewEvent((f) => ({ ...f, givepulse: e.target.value }))}
                 />
               </div>
+            </div>
+            <div style={{ marginTop: 18, maxWidth: 360 }}>
+              <label htmlFor="neMode">
+                How impact is counted
+                <small>Average for group totals; add together when each member reports their own</small>
+              </label>
+              <select
+                id="neMode"
+                value={newEvent.impactMode}
+                onChange={(e) => setNewEvent((f) => ({ ...f, impactMode: e.target.value }))}
+              >
+                <option value="average">Average (shared group total)</option>
+                <option value="sum">Add together (each member's own)</option>
+              </select>
             </div>
             <div style={{ marginTop: 18 }}>
               <label htmlFor="neNotes">

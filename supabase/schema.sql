@@ -927,3 +927,18 @@ begin
 end $$;
 revoke execute on function resubmit_log(bigint, text) from public, anon;
 grant execute on function resubmit_log(bigint, text) to authenticated;
+
+-- ── How an event's impact is counted ───────────────────────────────
+-- 'average': members report a shared group total, so verified = the average
+-- of their answers (six people each saying 120 is 120, not 720).
+-- 'sum': each member reports only what they personally contributed (e.g. the
+-- ADOS/SWAB book drive, where everyone brings their own books), so verified =
+-- the total of everyone's answers. Existing ADOS events start as 'sum', once.
+do $$ begin
+  if not exists (select 1 from information_schema.columns
+                 where table_name = 'events' and column_name = 'impact_mode') then
+    alter table events add column impact_mode text not null default 'average'
+      check (impact_mode in ('average', 'sum'));
+    update events set impact_mode = 'sum' where org_id = 'ados';
+  end if;
+end $$;
